@@ -236,7 +236,29 @@ func (c *TicketsGetCmd) Run(client *api.Client) error {
 	}
 	fmt.Printf("Ticket: %s\n", title)
 	fmt.Printf("ID: %s (%s)\n", humanID(ticketID), ticketID)
-	fmt.Printf("Project: %s\n", database)
+
+	// Fetch project name
+	project, err := client.GetProject(database)
+	if err == nil && project.ProjectName != "" {
+		fmt.Printf("Project: %s (%s)\n", project.ProjectName, database)
+	} else {
+		fmt.Printf("Project: %s\n", database)
+	}
+
+	// Fetch map and map group names if available
+	if ticket.MapID != "" {
+		mapDoc, err := client.GetMap(database, ticket.MapID)
+		if err == nil && mapDoc.Name != "" {
+			fmt.Printf("Map: %s\n", mapDoc.Name)
+		}
+	}
+
+	if ticket.GroupID != "" {
+		mapGroup, err := client.GetMapGroup(database, ticket.GroupID)
+		if err == nil && mapGroup.Name != "" {
+			fmt.Printf("Map Group: %s\n", mapGroup.Name)
+		}
+	}
 
 	if ticket.State != nil && ticket.State.State != "" {
 		fmt.Printf("Status: %s\n", ticket.State.State)

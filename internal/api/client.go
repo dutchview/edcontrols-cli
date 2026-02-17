@@ -122,8 +122,22 @@ type Ticket struct {
 	Dates        *TicketDates   `json:"dates,omitempty"`
 	Tags         []string       `json:"tags,omitempty"`
 	GroupID      string         `json:"groupId,omitempty"`
+	MapID        string         `json:"map,omitempty"`
 	Database     string         `json:"database,omitempty"`
 	Participants *Participants  `json:"participants,omitempty"`
+}
+
+// Map represents an EdControls map (drawing)
+type Map struct {
+	ID      string `json:"_id"`
+	Name    string `json:"name"`
+	GroupID string `json:"groupId,omitempty"`
+}
+
+// MapGroup represents an EdControls map group (drawing group)
+type MapGroup struct {
+	ID   string `json:"_id"`
+	Name string `json:"name"`
 }
 
 // Person represents a participant person
@@ -232,18 +246,19 @@ func (c *Client) ListProjects(opts ListProjectsOptions) ([]Project, int, error) 
 
 // GetProject returns a single project by database name
 func (c *Client) GetProject(database string) (*Project, error) {
-	endpoint := fmt.Sprintf("/api/v2/data/projects/%s", url.PathEscape(database))
-	body, err := c.doRequest("GET", endpoint, nil)
+	// Use the user's project list to find the project
+	projects, _, err := c.ListProjects(ListProjectsOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var project Project
-	if err := json.Unmarshal(body, &project); err != nil {
-		return nil, fmt.Errorf("parsing response: %w", err)
+	for _, p := range projects {
+		if p.ProjectID == database {
+			return &p, nil
+		}
 	}
 
-	return &project, nil
+	return nil, fmt.Errorf("project %s not found", database)
 }
 
 // ListTicketsOptions contains options for listing tickets
@@ -668,6 +683,38 @@ func (c *Client) GetDocument(database, docID string) (map[string]interface{}, er
 	}
 
 	return doc, nil
+}
+
+// GetMap returns a map (drawing) by ID
+func (c *Client) GetMap(database, mapID string) (*Map, error) {
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(mapID))
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var m Map
+	if err := json.Unmarshal(body, &m); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &m, nil
+}
+
+// GetMapGroup returns a map group (drawing group) by ID
+func (c *Client) GetMapGroup(database, groupID string) (*MapGroup, error) {
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(groupID))
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var mg MapGroup
+	if err := json.Unmarshal(body, &mg); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &mg, nil
 }
 
 // UpdateDocument updates a raw CouchDB document
