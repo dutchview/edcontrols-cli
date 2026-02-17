@@ -4,10 +4,88 @@ A command-line interface for interacting with the EdControls platform. Manage pr
 
 ## Installation
 
-### From Source
+### macOS (Homebrew)
+
+The easiest way to install on macOS:
 
 ```bash
-git clone https://github.com/mauricejumelet/edcontrols-cli.git
+brew tap dutchview/tap
+brew install ec
+```
+
+To upgrade to the latest version:
+
+```bash
+brew upgrade ec
+```
+
+### macOS / Linux (Direct Download)
+
+Download the latest release from the [GitHub Releases](https://github.com/dutchview/edcontrols-cli/releases) page.
+
+**macOS (Apple Silicon):**
+```bash
+curl -Lo ec.tar.gz https://github.com/dutchview/edcontrols-cli/releases/latest/download/edcontrols-cli_$(curl -s https://api.github.com/repos/dutchview/edcontrols-cli/releases/latest | grep tag_name | cut -d '"' -f 4 | tr -d 'v')_darwin_arm64.tar.gz
+tar -xzf ec.tar.gz
+sudo mv ec /usr/local/bin/
+rm ec.tar.gz
+```
+
+**macOS (Intel):**
+```bash
+curl -Lo ec.tar.gz https://github.com/dutchview/edcontrols-cli/releases/latest/download/edcontrols-cli_$(curl -s https://api.github.com/repos/dutchview/edcontrols-cli/releases/latest | grep tag_name | cut -d '"' -f 4 | tr -d 'v')_darwin_amd64.tar.gz
+tar -xzf ec.tar.gz
+sudo mv ec /usr/local/bin/
+rm ec.tar.gz
+```
+
+**Linux (x86_64):**
+```bash
+curl -Lo ec.tar.gz https://github.com/dutchview/edcontrols-cli/releases/latest/download/edcontrols-cli_$(curl -s https://api.github.com/repos/dutchview/edcontrols-cli/releases/latest | grep tag_name | cut -d '"' -f 4 | tr -d 'v')_linux_amd64.tar.gz
+tar -xzf ec.tar.gz
+sudo mv ec /usr/local/bin/
+rm ec.tar.gz
+```
+
+**Linux (ARM64):**
+```bash
+curl -Lo ec.tar.gz https://github.com/dutchview/edcontrols-cli/releases/latest/download/edcontrols-cli_$(curl -s https://api.github.com/repos/dutchview/edcontrols-cli/releases/latest | grep tag_name | cut -d '"' -f 4 | tr -d 'v')_linux_arm64.tar.gz
+tar -xzf ec.tar.gz
+sudo mv ec /usr/local/bin/
+rm ec.tar.gz
+```
+
+### Windows
+
+1. Download the latest `.zip` file from [GitHub Releases](https://github.com/dutchview/edcontrols-cli/releases):
+   - `edcontrols-cli_X.X.X_windows_amd64.zip` for 64-bit Windows
+   - `edcontrols-cli_X.X.X_windows_arm64.zip` for Windows ARM
+
+2. Extract the `ec.exe` file
+
+3. Move it to a directory in your PATH, or add the directory to your PATH environment variable
+
+**PowerShell (run as Administrator):**
+```powershell
+# Create directory if it doesn't exist
+New-Item -ItemType Directory -Force -Path "$env:LOCALAPPDATA\Programs\ec"
+
+# Move ec.exe to the directory (after extracting the zip)
+Move-Item -Path ".\ec.exe" -Destination "$env:LOCALAPPDATA\Programs\ec\"
+
+# Add to PATH (permanent, requires restart of terminal)
+$currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($currentPath -notlike "*$env:LOCALAPPDATA\Programs\ec*") {
+    [Environment]::SetEnvironmentVariable("Path", "$currentPath;$env:LOCALAPPDATA\Programs\ec", "User")
+}
+```
+
+### From Source
+
+Requires Go 1.21 or later.
+
+```bash
+git clone https://github.com/dutchview/edcontrols-cli.git
 cd edcontrols-cli
 go build -o ec .
 ```
@@ -15,7 +93,11 @@ go build -o ec .
 Move the binary to a directory in your PATH:
 
 ```bash
-mv ec /usr/local/bin/
+# macOS/Linux
+sudo mv ec /usr/local/bin/
+
+# Or install to user directory (no sudo required)
+mv ec ~/.local/bin/
 ```
 
 ## Configuration

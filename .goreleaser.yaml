@@ -1,0 +1,56 @@
+version: 2
+
+project_name: edcontrols-cli
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ec
+    binary: ec
+    main: ./main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+brews:
+  - name: ec
+    repository:
+      owner: dutchview
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    folder: Formula
+    homepage: "https://github.com/dutchview/edcontrols-cli"
+    description: "Command-line interface for EdControls"
+    license: "MIT"
+    install: |
+      bin.install "ec"
+    test: |
+      system "#{bin}/ec", "--version"
