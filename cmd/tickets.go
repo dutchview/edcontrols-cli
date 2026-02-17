@@ -221,13 +221,18 @@ func (c *TicketsGetCmd) Run(client *api.Client) error {
 		ticketID = foundID
 	}
 
+	if c.JSON {
+		// Return raw securedata document for JSON output
+		doc, err := client.GetDocument(database, ticketID)
+		if err != nil {
+			return err
+		}
+		return printJSON(doc)
+	}
+
 	ticket, err := client.GetTicket(database, ticketID)
 	if err != nil {
 		return err
-	}
-
-	if c.JSON {
-		return printJSON(ticket)
 	}
 
 	title := "-"

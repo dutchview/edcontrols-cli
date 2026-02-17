@@ -163,20 +163,42 @@ type AuditDates struct {
 
 // Audit represents an EdControls audit
 type Audit struct {
-	ID           string        `json:"id"`
-	CouchID      string        `json:"_id,omitempty"`
-	CouchDbID    string        `json:"couchDbId,omitempty"`
-	Name         string        `json:"name"`
-	Status       string        `json:"status"`
-	Template     string        `json:"template,omitempty"`
-	TemplateName string        `json:"templateName,omitempty"`
-	TemplateID   string        `json:"templateId,omitempty"`
-	Author       *Person       `json:"author,omitempty"`
-	Dates        *AuditDates   `json:"dates,omitempty"`
-	GroupID      string        `json:"groupId,omitempty"`
-	Tags         []string      `json:"tags,omitempty"`
-	Database     string        `json:"database,omitempty"`
-	Participants *Participants `json:"participants,omitempty"`
+	ID           string           `json:"id"`
+	CouchID      string           `json:"_id,omitempty"`
+	CouchDbID    string           `json:"couchDbId,omitempty"`
+	Name         string           `json:"name"`
+	Status       string           `json:"status"`
+	Template     string           `json:"template,omitempty"`
+	TemplateName string           `json:"templateName,omitempty"`
+	TemplateID   string           `json:"templateId,omitempty"`
+	Author       *Person          `json:"author,omitempty"`
+	Dates        *AuditDates      `json:"dates,omitempty"`
+	GroupID      string           `json:"groupId,omitempty"`
+	Tags         []string         `json:"tags,omitempty"`
+	Database     string           `json:"database,omitempty"`
+	Participants *Participants    `json:"participants,omitempty"`
+	Questions    []QuestionCategory `json:"questions,omitempty"`
+}
+
+// QuestionCategory represents a category of questions in an audit
+type QuestionCategory struct {
+	CategoryName string     `json:"categoryName"`
+	Questions    []Question `json:"questions,omitempty"`
+}
+
+// Question represents a single question in an audit
+type Question struct {
+	Question    string           `json:"question"`
+	Description string           `json:"description,omitempty"`
+	Answer      []interface{}    `json:"answer,omitempty"`
+	Settings    *QuestionSettings `json:"settings,omitempty"`
+}
+
+// QuestionSettings holds settings for a question
+type QuestionSettings struct {
+	AnswerType string   `json:"answertype,omitempty"`
+	Choice     string   `json:"choice,omitempty"`
+	Answer     []string `json:"answer,omitempty"` // Predefined options for multiplechoice
 }
 
 // TemplateDates holds date fields for a template

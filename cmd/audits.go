@@ -239,13 +239,18 @@ func (c *AuditsGetCmd) Run(client *api.Client) error {
 		auditID = foundID
 	}
 
+	if c.JSON {
+		// Return raw securedata document for JSON output
+		doc, err := client.GetDocument(database, auditID)
+		if err != nil {
+			return err
+		}
+		return printJSON(doc)
+	}
+
 	audit, err := client.GetAudit(database, auditID)
 	if err != nil {
 		return err
-	}
-
-	if c.JSON {
-		return printJSON(audit)
 	}
 
 	fmt.Printf("Audit: %s\n", audit.Name)
@@ -303,7 +308,64 @@ func (c *AuditsGetCmd) Run(client *api.Client) error {
 		fmt.Printf("Tags: %v\n", audit.Tags)
 	}
 
+	// Display questions and answers
+	if len(audit.Questions) > 0 {
+		fmt.Printf("\n--- Questions & Answers ---\n")
+		for _, category := range audit.Questions {
+			fmt.Printf("\n[%s]\n", category.CategoryName)
+			for _, q := range category.Questions {
+				answerStr := formatAnswer(q.Answer)
+				if answerStr != "" {
+					fmt.Printf("  Q: %s\n", q.Question)
+					fmt.Printf("  A: %s\n", answerStr)
+				} else {
+					fmt.Printf("  Q: %s\n", q.Question)
+					fmt.Printf("  A: (no answer)\n")
+				}
+			}
+		}
+	}
+
 	return nil
+}
+
+// formatAnswer converts an answer slice to a readable string
+func formatAnswer(answer []interface{}) string {
+	if len(answer) == 0 {
+		return ""
+	}
+
+	var parts []string
+	for _, a := range answer {
+		switch v := a.(type) {
+		case string:
+			if v != "" {
+				parts = append(parts, v)
+			}
+		case map[string]interface{}:
+			// Handle complex answer objects (e.g., dates, files)
+			if text, ok := v["text"].(string); ok && text != "" {
+				parts = append(parts, text)
+			} else if value, ok := v["value"].(string); ok && value != "" {
+				parts = append(parts, value)
+			} else if date, ok := v["date"].(string); ok && date != "" {
+				parts = append(parts, date)
+			}
+		case bool:
+			if v {
+				parts = append(parts, "Yes")
+			} else {
+				parts = append(parts, "No")
+			}
+		case float64:
+			parts = append(parts, fmt.Sprintf("%.0f", v))
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, ", ")
 }
 
 // findAuditByHumanID searches for an audit matching the given human ID.
