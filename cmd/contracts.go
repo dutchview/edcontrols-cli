@@ -10,7 +10,8 @@ import (
 )
 
 type ContractsCmd struct {
-	List ContractsListCmd `cmd:"" help:"List contracts (clients)"`
+	List     ContractsListCmd     `cmd:"" help:"List contracts (clients)"`
+	Projects ContractsProjectsCmd `cmd:"" help:"List projects for a contract"`
 }
 
 type ContractsListCmd struct {
@@ -96,6 +97,76 @@ func (c *ContractsListCmd) Run(client *api.Client) error {
 
 	w.Flush()
 	fmt.Printf("\nTotal: %d contracts\n", len(contracts))
+
+	return nil
+}
+
+type ContractsProjectsCmd struct {
+	ContractID string `arg:"" help:"Contract ID"`
+	JSON       bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *ContractsProjectsCmd) Run(client *api.Client) error {
+	// Get all projects
+	projects, _, err := client.ListProjects(api.ListProjectsOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Filter projects by contract ID
+	var contractProjects []api.Project
+	for _, p := range projects {
+		if p.Contract == c.ContractID {
+			contractProjects = append(contractProjects, p)
+		}
+	}
+
+	if c.JSON {
+		return printJSON(contractProjects)
+	}
+
+	if len(contractProjects) == 0 {
+		fmt.Printf("No projects found for contract %s\n", c.ContractID)
+		return nil
+	}
+
+	// Get contract name for display
+	contractName := c.ContractID
+	contract, err := client.GetContract(c.ContractID)
+	if err == nil && contract.Name != "" {
+		contractName = contract.Name
+	}
+
+	fmt.Printf("Projects for contract: %s\n\n", contractName)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "PROJECT_ID\tNAME\tSTATUS")
+	fmt.Fprintln(w, "----------\t----\t------")
+
+	for _, project := range contractProjects {
+		status := "active"
+		if !project.IsActive {
+			status = "inactive"
+		}
+		if project.Archived != nil {
+			switch v := project.Archived.(type) {
+			case string:
+				if v != "" {
+					status = "archived"
+				}
+			case bool:
+				if v {
+					status = "archived"
+				}
+			}
+		}
+
+		name := truncate(project.ProjectName, 50)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", project.ProjectID, name, status)
+	}
+
+	w.Flush()
+	fmt.Printf("\nTotal: %d projects\n", len(contractProjects))
 
 	return nil
 }
