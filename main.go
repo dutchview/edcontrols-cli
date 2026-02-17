@@ -18,6 +18,7 @@ var CLI struct {
 	Token  string `help:"Access token (overrides config file)" env:"EDCONTROLS_ACCESS_TOKEN"`
 
 	// Commands
+	Whoami    cmd.WhoamiCmd    `cmd:"" help:"Show current user info"`
 	Contracts cmd.ContractsCmd `cmd:"" help:"List contracts (clients)"`
 	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects"`
 	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets"`
