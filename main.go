@@ -18,15 +18,15 @@ var CLI struct {
 	Token  string `help:"Access token (overrides config file)" env:"EDCONTROLS_ACCESS_TOKEN"`
 
 	// Commands
-	Whoami    cmd.WhoamiCmd    `cmd:"" help:"Show current user info"`
-	Contracts cmd.ContractsCmd `cmd:"" help:"List contracts (clients)"`
-	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects (list, get)"`
+	Whoami    cmd.WhoamiCmd    `cmd:"" help:"Show current user info (-j for JSON)"`
+	Contracts cmd.ContractsCmd `cmd:"" help:"Manage contracts/clients (list, projects)"`
+	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects (list, get) with search and glacier support"`
 	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets (list, get, update, assign, open, close, archive, unarchive, delete)"`
-	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get)"`
-	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create, update, groups)"`
-	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps (list, get, add, delete, tags)"`
-	Files     cmd.FilesCmd     `cmd:"" help:"Manage files (list, get, add, download, archive, delete, tags, to-map)"`
-	Configure ConfigureCmd     `cmd:"" help:"Show configuration help"`
+	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get, create from template)"`
+	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create, update) and groups (list, create)"`
+	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps/drawings (list, get, add, delete, tags) and groups (list)"`
+	Files     cmd.FilesCmd     `cmd:"" help:"Manage files (list, get, add, download, archive, unarchive, delete, tags, to-map) and groups (list)"`
+	Configure ConfigureCmd     `cmd:"" help:"Show configuration help and setup instructions"`
 }
 
 type ConfigureCmd struct{}

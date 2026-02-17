@@ -342,6 +342,30 @@ Close a ticket (set status to Done).
 ec tickets close nl_company_abc123 ticket-id-here
 ```
 
+#### tickets archive
+
+Archive a ticket.
+
+```bash
+ec tickets archive nl_company_abc123 ticket-id-here
+```
+
+#### tickets unarchive
+
+Unarchive (restore) a ticket.
+
+```bash
+ec tickets unarchive nl_company_abc123 ticket-id-here
+```
+
+#### tickets delete
+
+Permanently delete a ticket.
+
+```bash
+ec tickets delete nl_company_abc123 ticket-id-here
+```
+
 ---
 
 ### audits
@@ -530,6 +554,33 @@ ec templates get nl_company_abc123 template-id-here
 ec templates get nl_company_abc123 template-id-here -j
 ```
 
+#### templates create
+
+Create a new audit template in a template group.
+
+```bash
+# Create a template in a group
+ec templates create nl_company_abc123 group-id-here "My New Template"
+
+# Create with tags
+ec templates create nl_company_abc123 group-id-here "Safety Checklist" -t "safety" -t "checklist"
+
+# Output as JSON
+ec templates create nl_company_abc123 group-id-here "My Template" -j
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-t, --tags=TAGS,...` | Tags to add (can be specified multiple times) |
+| `-j, --json` | Output as JSON |
+
+**Notes:**
+- Templates are created with an empty "Questions" category
+- New templates start as unpublished
+- Add questions via the EdControls web interface
+
 #### templates update
 
 Update an audit template.
@@ -585,6 +636,24 @@ ec templates groups list nl_company_abc123 -j
 | `-a, --archived` | Include archived groups |
 | `-l, --limit=50` | Maximum number of groups to return |
 | `-p, --page=0` | Page number (0-based) |
+| `-j, --json` | Output as JSON |
+
+#### templates groups create
+
+Create a new template group.
+
+```bash
+# Create a template group
+ec templates groups create nl_company_abc123 "My New Group"
+
+# Output as JSON
+ec templates groups create nl_company_abc123 "Safety Templates" -j
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
 | `-j, --json` | Output as JSON |
 
 ---
@@ -1019,8 +1088,39 @@ ec tickets list nl_company_abc123 -s "Open"
 # Get details on a specific ticket
 ec tickets get CC455B
 
+# Update a ticket with multiple changes
+ec tickets update nl_company_abc123 ticket-id-here \
+  -t "Updated Title" \
+  -r user@example.com \
+  -m "Status update from CLI"
+
+# Mark a ticket as completed
+ec tickets update nl_company_abc123 ticket-id-here --complete
+
 # Close a completed ticket
 ec tickets close nl_company_abc123 ticket-id-here
+```
+
+### Managing Tickets
+
+```bash
+# Assign a ticket to someone
+ec tickets assign nl_company_abc123 ticket-id user@example.com
+
+# Add a comment to a ticket
+ec tickets update nl_company_abc123 ticket-id -m "This is my comment"
+
+# Set a due date
+ec tickets update nl_company_abc123 ticket-id --due-date "2026-03-15T12:00:00.000Z"
+
+# Archive old tickets
+ec tickets archive nl_company_abc123 ticket-id-here
+
+# Restore archived tickets
+ec tickets unarchive nl_company_abc123 ticket-id-here
+
+# Permanently delete a ticket
+ec tickets delete nl_company_abc123 ticket-id-here
 ```
 
 ### Creating Audits
@@ -1034,6 +1134,59 @@ ec audits create nl_company_abc123 template-id-here \
   -n "Weekly Safety Inspection" \
   -r "inspector@example.com" \
   -d "2025-02-28T17:00:00Z"
+
+# Create audit with tags
+ec audits create nl_company_abc123 template-id-here \
+  -n "Q1 Review" \
+  -t "quarterly" -t "review"
+```
+
+### Managing Templates
+
+```bash
+# Create a new template group
+ec templates groups create nl_company_abc123 "Safety Checklists"
+
+# Create a new template in the group
+ec templates create nl_company_abc123 group-id-here "Fire Safety Checklist" \
+  -t "safety" -t "fire"
+
+# Update template metadata
+ec templates update nl_company_abc123 template-id-here \
+  -n "Updated Template Name" \
+  -d "New description"
+```
+
+### File Management
+
+```bash
+# Upload a file
+ec files add nl_company_abc123 group-id /path/to/document.pdf
+
+# Download a file
+ec files download file-id-here -o ./downloaded.pdf
+
+# Update file tags
+ec files tags nl_company_abc123 file-id -t "report" -t "2026"
+
+# Convert a PDF to a map
+ec files to-map nl_company_abc123 file-id-here
+
+# Archive old files
+ec files archive nl_company_abc123 file-id-here
+```
+
+### Map Management
+
+```bash
+# Upload and convert a PDF to a tiled map
+ec maps add nl_company_abc123 file-group-id /path/to/floorplan.pdf -n "Ground Floor"
+
+# Update map tags
+ec maps tags nl_company_abc123 map-id -t "architecture" -t "floor-1"
+
+# Delete a map
+ec maps delete nl_company_abc123 map-id-here
 ```
 
 ### Exporting Data
@@ -1044,6 +1197,28 @@ ec audits list nl_company_abc123 -l 1000 -j > audits.json
 
 # Export completed audits only
 ec audits list nl_company_abc123 -s "completed" -j > completed_audits.json
+
+# Export all tickets with full details
+ec tickets list nl_company_abc123 -l 1000 -j > tickets.json
+
+# Export project list
+ec projects list -j > projects.json
+```
+
+### Scripting with jq
+
+```bash
+# Get ticket titles
+ec tickets list nl_company_abc123 -j | jq '.[].content.title'
+
+# Count open tickets
+ec tickets list nl_company_abc123 -s "Open" -j | jq 'length'
+
+# Get audit IDs for a specific template
+ec audits list nl_company_abc123 -t template-id -j | jq '.[].couchDbId'
+
+# Extract responsible emails from tickets
+ec tickets list nl_company_abc123 -j | jq '.[].participants.responsible.email // empty'
 ```
 
 ---
