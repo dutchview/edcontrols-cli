@@ -220,6 +220,7 @@ type File struct {
 	ContentType string      `json:"contentType,omitempty"`
 	Size        interface{} `json:"size,omitempty"` // Can be string or number
 	GroupID     string      `json:"groupId,omitempty"`
+	FileGroupID string      `json:"fileGroupID,omitempty"` // Used in document (alternative to groupId)
 	GroupName   string      `json:"groupName,omitempty"`
 	Dates       *FileDates  `json:"dates,omitempty"`
 	Tags        []string    `json:"tags,omitempty"`

@@ -125,17 +125,21 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 		return nil
 	}
 
-	// Build a map of group names
+	// Build a map of group names (check both GroupID and FileGroupID)
 	groupNames := make(map[string]string)
 	for _, f := range files {
-		if f.GroupID != "" && groupNames[f.GroupID] == "" {
+		groupID := f.GroupID
+		if groupID == "" {
+			groupID = f.FileGroupID
+		}
+		if groupID != "" && groupNames[groupID] == "" {
 			if f.GroupName != "" {
-				groupNames[f.GroupID] = f.GroupName
+				groupNames[groupID] = f.GroupName
 			} else {
 				// Fetch group name
-				group, err := client.GetFileGroup(c.Database, f.GroupID)
+				group, err := client.GetFileGroup(c.Database, groupID)
 				if err == nil && group.Name != "" {
-					groupNames[f.GroupID] = group.Name
+					groupNames[groupID] = group.Name
 				}
 			}
 		}
@@ -161,8 +165,13 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 			modified = f.Dates.LastModified[:10]
 		}
 
+		// Get group name (check both GroupID and FileGroupID)
+		fileGroupID := f.GroupID
+		if fileGroupID == "" {
+			fileGroupID = f.FileGroupID
+		}
 		groupName := "-"
-		if name, ok := groupNames[f.GroupID]; ok && name != "" {
+		if name, ok := groupNames[fileGroupID]; ok && name != "" {
 			groupName = truncate(name, 25)
 		}
 
@@ -253,11 +262,17 @@ func (c *FilesGetCmd) Run(client *api.Client) error {
 		fmt.Printf("Project: %s\n", database)
 	}
 
-	// Fetch file group name
-	if f.GroupID != "" {
-		group, err := client.GetFileGroup(database, f.GroupID)
+	// Fetch file group name (check both GroupID and FileGroupID)
+	groupID := f.GroupID
+	if groupID == "" {
+		groupID = f.FileGroupID
+	}
+	if groupID != "" {
+		group, err := client.GetFileGroup(database, groupID)
 		if err == nil && group.Name != "" {
-			fmt.Printf("File Group: %s\n", group.Name)
+			fmt.Printf("File Group: %s (%s)\n", group.Name, groupID)
+		} else {
+			fmt.Printf("File Group ID: %s\n", groupID)
 		}
 	}
 
