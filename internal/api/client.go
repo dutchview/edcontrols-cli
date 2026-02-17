@@ -605,10 +605,12 @@ type UpdateTicketOptions struct {
 
 // UpdateTicketFieldsOptions contains options for updating ticket fields with operation tracking
 type UpdateTicketFieldsOptions struct {
-	Title       *string
-	Description *string
-	DueDate     *string
-	ClearDue    bool
+	Title            *string
+	Description      *string
+	DueDate          *string
+	ClearDue         bool
+	Responsible      *string // Email of the responsible person
+	ClearResponsible bool    // Clear the responsible (sets status back to created)
 }
 
 // UpdateTicket updates a ticket via the securedata endpoint
@@ -1775,6 +1777,80 @@ func (c *Client) UpdateTicketFields(database, ticketID string, opts UpdateTicket
 		changedProps = append(changedProps, "duedate")
 		oldValues = append(oldValues, oldDueDate)
 		newValues = append(newValues, newDueDate)
+	}
+
+	// Handle responsible update
+	if opts.Responsible != nil || opts.ClearResponsible {
+		// Get old responsible email
+		oldResponsible := ""
+		if participants, ok := doc["participants"].(map[string]interface{}); ok {
+			if resp, ok := participants["responsible"].(map[string]interface{}); ok {
+				if email, ok := resp["email"].(string); ok {
+					oldResponsible = email
+				}
+			}
+		}
+
+		// Get old status
+		oldStatus := ""
+		if state, ok := doc["state"].(map[string]interface{}); ok {
+			if s, ok := state["state"].(string); ok {
+				oldStatus = s
+			}
+		}
+
+		newResponsible := ""
+		newStatus := ""
+
+		if opts.ClearResponsible {
+			// Clear responsible and set status to created
+			if participants, ok := doc["participants"].(map[string]interface{}); ok {
+				delete(participants, "responsible")
+			}
+			newStatus = "created"
+		} else if opts.Responsible != nil {
+			// Set responsible and change status to started
+			newResponsible = *opts.Responsible
+			if participants, ok := doc["participants"].(map[string]interface{}); ok {
+				participants["responsible"] = map[string]interface{}{
+					"type":  "IB.EdBundle.Document.Person",
+					"email": *opts.Responsible,
+				}
+			} else {
+				doc["participants"] = map[string]interface{}{
+					"type": "IB.EdBundle.Document.Participants",
+					"responsible": map[string]interface{}{
+						"type":  "IB.EdBundle.Document.Person",
+						"email": *opts.Responsible,
+					},
+					"consulted": []interface{}{},
+					"informed":  []interface{}{},
+				}
+			}
+			newStatus = "started"
+		}
+
+		// Update state
+		if newStatus != "" && newStatus != oldStatus {
+			if state, ok := doc["state"].(map[string]interface{}); ok {
+				state["state"] = newStatus
+			} else {
+				doc["state"] = map[string]interface{}{
+					"type":  "IB.EdBundle.Document.State",
+					"state": newStatus,
+				}
+			}
+
+			// Add status change to operation record
+			changedProps = append(changedProps, "status")
+			oldValues = append(oldValues, oldStatus)
+			newValues = append(newValues, newStatus)
+		}
+
+		// Add responsible change to operation record
+		changedProps = append(changedProps, "responsible")
+		oldValues = append(oldValues, oldResponsible)
+		newValues = append(newValues, newResponsible)
 	}
 
 	// If no changes, return early

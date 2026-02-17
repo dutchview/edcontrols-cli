@@ -416,18 +416,21 @@ func findTicketByHumanID(client *api.Client, searchID string, limitToDatabase st
 }
 
 type TicketsUpdateCmd struct {
-	Database    string `arg:"" help:"Project database name"`
-	TicketID    string `arg:"" help:"Ticket ID"`
-	Title       string `short:"t" help:"New title for the ticket"`
-	Description string `short:"d" help:"New description for the ticket"`
-	DueDate     string `help:"Due date (ISO 8601 format, e.g., 2026-03-15T12:00:00.000Z)"`
-	ClearDue    bool   `help:"Clear the due date"`
+	Database         string `arg:"" help:"Project database name"`
+	TicketID         string `arg:"" help:"Ticket ID"`
+	Title            string `short:"t" help:"New title for the ticket"`
+	Description      string `short:"d" help:"New description for the ticket"`
+	DueDate          string `help:"Due date (ISO 8601 format, e.g., 2026-03-15T12:00:00.000Z)"`
+	ClearDue         bool   `help:"Clear the due date"`
+	Responsible      string `short:"r" help:"Assign to this email (also sets status to started)"`
+	ClearResponsible bool   `help:"Clear the responsible person (sets status back to created)"`
 }
 
 func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	// Build update options
 	opts := api.UpdateTicketFieldsOptions{
-		ClearDue: c.ClearDue,
+		ClearDue:         c.ClearDue,
+		ClearResponsible: c.ClearResponsible,
 	}
 
 	if c.Title != "" {
@@ -441,9 +444,12 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	if c.DueDate != "" {
 		opts.DueDate = &c.DueDate
 	}
+	if c.Responsible != "" {
+		opts.Responsible = &c.Responsible
+	}
 
 	// If no updates specified, show current values
-	if opts.Title == nil && opts.Description == nil && opts.DueDate == nil && !opts.ClearDue {
+	if opts.Title == nil && opts.Description == nil && opts.DueDate == nil && !opts.ClearDue && opts.Responsible == nil && !opts.ClearResponsible {
 		ticket, err := client.GetTicket(c.Database, c.TicketID)
 		if err != nil {
 			return fmt.Errorf("getting ticket: %w", err)
@@ -452,6 +458,8 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 		title := "-"
 		description := "-"
 		dueDate := "-"
+		responsible := "-"
+		status := "-"
 
 		if ticket.Content != nil && ticket.Content.Title != "" {
 			title = ticket.Content.Title
@@ -468,10 +476,18 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 				dueDate = dd
 			}
 		}
+		if ticket.Participants != nil && ticket.Participants.Responsible != nil && ticket.Participants.Responsible.Email != "" {
+			responsible = ticket.Participants.Responsible.Email
+		}
+		if ticket.State != nil && ticket.State.State != "" {
+			status = ticket.State.State
+		}
 
 		fmt.Printf("Title: %s\n", title)
 		fmt.Printf("Description: %s\n", description)
 		fmt.Printf("Due date: %s\n", dueDate)
+		fmt.Printf("Responsible: %s\n", responsible)
+		fmt.Printf("Status: %s\n", status)
 		return nil
 	}
 
@@ -492,6 +508,12 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	}
 	if opts.ClearDue {
 		updates = append(updates, "due-date cleared")
+	}
+	if opts.Responsible != nil {
+		updates = append(updates, fmt.Sprintf("responsible=%s (status->started)", *opts.Responsible))
+	}
+	if opts.ClearResponsible {
+		updates = append(updates, "responsible cleared (status->created)")
 	}
 
 	fmt.Printf("Ticket %s updated: %s\n", c.TicketID, strings.Join(updates, ", "))
