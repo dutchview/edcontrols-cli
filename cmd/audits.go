@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/mauricejumelet/edcontrols-cli/internal/api"
@@ -212,13 +213,33 @@ func (c *AuditsListCmd) Run(client *api.Client) error {
 }
 
 type AuditsGetCmd struct {
-	Database string `arg:"" help:"Project database name"`
-	AuditID  string `arg:"" help:"Audit ID"`
+	AuditID  string `arg:"" help:"Audit ID (human ID like '708739' or full CouchDB ID)"`
+	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 
 func (c *AuditsGetCmd) Run(client *api.Client) error {
-	audit, err := client.GetAudit(c.Database, c.AuditID)
+	database := c.Database
+	auditID := c.AuditID
+
+	// If the audit ID looks like a human ID (6 chars or less), search for it
+	isHumanID := len(c.AuditID) <= 6
+
+	if isHumanID {
+		// Search for the audit by human ID
+		var searchDB string
+		if c.Database != "" {
+			searchDB = c.Database
+		}
+		foundDB, foundID, err := findAuditByHumanID(client, c.AuditID, searchDB)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+		auditID = foundID
+	}
+
+	audit, err := client.GetAudit(database, auditID)
 	if err != nil {
 		return err
 	}
@@ -228,12 +249,36 @@ func (c *AuditsGetCmd) Run(client *api.Client) error {
 	}
 
 	fmt.Printf("Audit: %s\n", audit.Name)
-	fmt.Printf("ID: %s\n", audit.CouchDbID)
+	fmt.Printf("ID: %s (%s)\n", humanID(auditID), auditID)
+
+	// Fetch project name
+	project, err := client.GetProject(database)
+	if err == nil && project.ProjectName != "" {
+		fmt.Printf("Project: %s (%s)\n", project.ProjectName, database)
+	} else {
+		fmt.Printf("Project: %s\n", database)
+	}
+
+	// Fetch template name and template group name
+	if audit.Template != "" {
+		template, err := client.GetAuditTemplate(database, audit.Template)
+		if err == nil {
+			fmt.Printf("Template: %s\n", template.Name)
+
+			// Fetch template group name if available
+			if template.GroupID != "" {
+				templateGroup, err := client.GetMapGroup(database, template.GroupID)
+				if err == nil && templateGroup.Name != "" {
+					fmt.Printf("Template Group: %s\n", templateGroup.Name)
+				}
+			}
+		} else {
+			fmt.Printf("Template: %s\n", audit.Template)
+		}
+	}
+
 	fmt.Printf("Status: %s\n", statusString(audit.Status))
 
-	if audit.Template != "" {
-		fmt.Printf("Template: %s\n", audit.Template)
-	}
 	if audit.Participants != nil && audit.Participants.Responsible != nil && audit.Participants.Responsible.Email != "" {
 		fmt.Printf("Responsible: %s\n", audit.Participants.Responsible.Email)
 	}
@@ -259,6 +304,57 @@ func (c *AuditsGetCmd) Run(client *api.Client) error {
 	}
 
 	return nil
+}
+
+// findAuditByHumanID searches for an audit matching the given human ID.
+// If limitToDatabase is not empty, only searches that database.
+// Returns the database name and full CouchDB ID of the audit.
+func findAuditByHumanID(client *api.Client, searchID string, limitToDatabase string) (string, string, error) {
+	searchID = strings.ToUpper(searchID)
+
+	var projectIDs []string
+
+	if limitToDatabase != "" {
+		projectIDs = []string{limitToDatabase}
+	} else {
+		projects, _, err := client.ListProjects(api.ListProjectsOptions{})
+		if err != nil {
+			return "", "", err
+		}
+		for _, project := range projects {
+			// Skip glacier projects and inactive projects for faster search
+			if project.ProjectID == "glacier_project_documents" || !project.IsActive {
+				continue
+			}
+			projectIDs = append(projectIDs, project.ProjectID)
+		}
+	}
+
+	// Use the POST search endpoint which supports searchById across multiple projects
+	audits, err := client.SearchAuditsByID(projectIDs, strings.ToLower(searchID))
+	if err != nil {
+		return "", "", err
+	}
+
+	// Verify the human ID matches and extract the database from the audit
+	for _, audit := range audits {
+		if humanID(audit.CouchDbID) == searchID {
+			// Extract database from the audit's ID field (format: database|couchDbId)
+			if audit.ID != "" && strings.Contains(audit.ID, "|") {
+				parts := strings.SplitN(audit.ID, "|", 2)
+				return parts[0], audit.CouchDbID, nil
+			}
+			// Fallback: search each project to find where this audit exists
+			for _, projectID := range projectIDs {
+				_, err := client.GetAudit(projectID, audit.CouchDbID)
+				if err == nil {
+					return projectID, audit.CouchDbID, nil
+				}
+			}
+		}
+	}
+
+	return "", "", fmt.Errorf("audit with ID %s not found", searchID)
 }
 
 type AuditsCreateCmd struct {

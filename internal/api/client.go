@@ -164,6 +164,7 @@ type AuditDates struct {
 // Audit represents an EdControls audit
 type Audit struct {
 	ID           string        `json:"id"`
+	CouchID      string        `json:"_id,omitempty"`
 	CouchDbID    string        `json:"couchDbId,omitempty"`
 	Name         string        `json:"name"`
 	Status       string        `json:"status"`
@@ -187,6 +188,7 @@ type TemplateDates struct {
 // AuditTemplate represents an EdControls audit template
 type AuditTemplate struct {
 	ID          string         `json:"id"`
+	CouchID     string         `json:"_id,omitempty"`
 	CouchDbID   string         `json:"couchDbId,omitempty"`
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
@@ -375,6 +377,40 @@ func (c *Client) SearchTicketsByID(projectIDs []string, searchID string) ([]Tick
 	return tickets, nil
 }
 
+// SearchAuditsByID searches for audits by ID across multiple projects using the POST search endpoint
+func (c *Client) SearchAuditsByID(projectIDs []string, searchID string) ([]Audit, error) {
+	reqBody := map[string]interface{}{
+		"projects":      projectIDs,
+		"searchById":    searchID,
+		"sortOrder":     "DESC",
+		"sortby":        "LASTMODIFIEDDATE",
+		"includeFields": []string{"couchDbId"},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+
+	endpoint := "/api/v2/data/audits/search?size=10&page=0"
+	body, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var audits []Audit
+	if err := json.Unmarshal(result.Results, &audits); err != nil {
+		return nil, fmt.Errorf("parsing audits: %w", err)
+	}
+
+	return audits, nil
+}
+
 // GetTicket returns a single ticket
 func (c *Client) GetTicket(database, ticketID string) (*Ticket, error) {
 	endpoint := fmt.Sprintf("/api/v2/data/tickets/%s/%s", url.PathEscape(database), url.PathEscape(ticketID))
@@ -521,9 +557,9 @@ func (c *Client) ListAudits(opts ListAuditsOptions) ([]Audit, int, error) {
 	return audits, result.Hits, nil
 }
 
-// GetAudit returns a single audit
+// GetAudit returns a single audit via the securedata endpoint
 func (c *Client) GetAudit(database, auditID string) (*Audit, error) {
-	endpoint := fmt.Sprintf("/api/v2/data/projects/%s/audits/%s", url.PathEscape(database), url.PathEscape(auditID))
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(auditID))
 	body, err := c.doRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -532,6 +568,11 @@ func (c *Client) GetAudit(database, auditID string) (*Audit, error) {
 	var audit Audit
 	if err := json.Unmarshal(body, &audit); err != nil {
 		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	// Set CouchDbID from CouchID (_id) if not set
+	if audit.CouchDbID == "" && audit.CouchID != "" {
+		audit.CouchDbID = audit.CouchID
 	}
 
 	return &audit, nil
@@ -625,8 +666,7 @@ func (c *Client) ListAuditTemplates(opts ListAuditTemplatesOptions) ([]AuditTemp
 
 // GetAuditTemplate returns a single audit template
 func (c *Client) GetAuditTemplate(database, templateID string) (*AuditTemplate, error) {
-	endpoint := fmt.Sprintf("/api/v2/data/projects/%s/audittemplates/%s",
-		url.PathEscape(database), url.PathEscape(templateID))
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(templateID))
 	body, err := c.doRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -635,6 +675,11 @@ func (c *Client) GetAuditTemplate(database, templateID string) (*AuditTemplate, 
 	var template AuditTemplate
 	if err := json.Unmarshal(body, &template); err != nil {
 		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	// Set CouchDbID from CouchID (_id) if not set
+	if template.CouchDbID == "" && template.CouchID != "" {
+		template.CouchDbID = template.CouchID
 	}
 
 	return &template, nil
