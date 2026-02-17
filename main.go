@@ -22,6 +22,7 @@ var CLI struct {
 	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits"`
 	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates"`
 	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps (drawings)"`
+	Files     cmd.FilesCmd     `cmd:"" help:"Manage files"`
 	Configure ConfigureCmd     `cmd:"" help:"Show configuration help"`
 }
 

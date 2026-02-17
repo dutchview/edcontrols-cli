@@ -151,6 +151,34 @@ type MapGroup struct {
 	Name string `json:"name"`
 }
 
+// File represents an EdControls file (attachment/document)
+type File struct {
+	ID          string      `json:"id,omitempty"`
+	CouchID     string      `json:"_id,omitempty"`
+	CouchDbID   string      `json:"couchDbId,omitempty"`
+	Name        string      `json:"name"`
+	FileName    string      `json:"fileName,omitempty"`
+	ContentType string      `json:"contentType,omitempty"`
+	Size        interface{} `json:"size,omitempty"` // Can be string or number
+	GroupID     string      `json:"groupId,omitempty"`
+	GroupName   string      `json:"groupName,omitempty"`
+	Dates       *FileDates  `json:"dates,omitempty"`
+	Tags        []string    `json:"tags,omitempty"`
+	Author      *Person     `json:"author,omitempty"`
+}
+
+// FileDates holds date fields for a file
+type FileDates struct {
+	CreationDate string `json:"creationDate,omitempty"`
+	LastModified string `json:"lastModifiedDate,omitempty"`
+}
+
+// FileGroup represents an EdControls file group
+type FileGroup struct {
+	ID   string `json:"_id"`
+	Name string `json:"name"`
+}
+
 // Person represents a participant person
 type Person struct {
 	Email string `json:"email,omitempty"`
@@ -912,4 +940,142 @@ func (c *Client) UpdateDocument(database, docID string, doc map[string]interface
 
 	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
 	return err
+}
+
+// ListFilesOptions contains options for listing files
+type ListFilesOptions struct {
+	Database   string // Required
+	GroupID    string
+	SearchName string
+	SearchByID string
+	Tag        string
+	Archived   bool
+	SortBy     string
+	SortOrder  string
+	Page       int
+	Size       int
+}
+
+// ListFiles returns files for a project
+func (c *Client) ListFiles(opts ListFilesOptions) ([]File, int, error) {
+	params := url.Values{}
+
+	if opts.GroupID != "" {
+		params.Set("groupid", opts.GroupID)
+	}
+	if opts.SearchName != "" {
+		params.Set("searchByName", opts.SearchName)
+	}
+	if opts.SearchByID != "" {
+		params.Set("searchById", opts.SearchByID)
+	}
+	if opts.Tag != "" {
+		params.Set("tag", opts.Tag)
+	}
+	if opts.Archived {
+		params.Set("archived", "true")
+	}
+	if opts.SortBy != "" {
+		params.Set("sortby", opts.SortBy)
+	}
+	if opts.SortOrder != "" {
+		params.Set("sortOrder", opts.SortOrder)
+	}
+	if opts.Page > 0 {
+		params.Set("page", fmt.Sprintf("%d", opts.Page))
+	}
+	if opts.Size > 0 {
+		params.Set("size", fmt.Sprintf("%d", opts.Size))
+	} else {
+		params.Set("size", "50")
+	}
+
+	endpoint := "/api/v2/data/file/" + url.PathEscape(opts.Database) + "?" + params.Encode()
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, 0, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var files []File
+	if err := json.Unmarshal(result.Results, &files); err != nil {
+		return nil, 0, fmt.Errorf("parsing files: %w", err)
+	}
+
+	return files, result.Hits, nil
+}
+
+// GetFile returns a single file via the securedata endpoint
+func (c *Client) GetFile(database, fileID string) (*File, error) {
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(fileID))
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var file File
+	if err := json.Unmarshal(body, &file); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	// Set CouchDbID from CouchID (_id) if not set
+	if file.CouchDbID == "" && file.CouchID != "" {
+		file.CouchDbID = file.CouchID
+	}
+
+	return &file, nil
+}
+
+// GetFileGroup returns a file group by ID
+func (c *Client) GetFileGroup(database, groupID string) (*FileGroup, error) {
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(groupID))
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var group FileGroup
+	if err := json.Unmarshal(body, &group); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &group, nil
+}
+
+// SearchFilesByID searches for files by ID across multiple projects using the POST search endpoint
+func (c *Client) SearchFilesByID(projectIDs []string, searchID string) ([]File, error) {
+	reqBody := map[string]interface{}{
+		"projects":      projectIDs,
+		"searchById":    searchID,
+		"sortOrder":     "DESC",
+		"sortby":        "LASTMODIFIEDDATE",
+		"includeFields": []string{"couchDbId"},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+
+	endpoint := "/api/v2/data/file/search?size=10&page=0"
+	body, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var files []File
+	if err := json.Unmarshal(result.Results, &files); err != nil {
+		return nil, fmt.Errorf("parsing files: %w", err)
+	}
+
+	return files, nil
 }
