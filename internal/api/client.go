@@ -222,6 +222,8 @@ type File struct {
 	Dates       *FileDates  `json:"dates,omitempty"`
 	Tags        []string    `json:"tags,omitempty"`
 	Author      *Person     `json:"author,omitempty"`
+	Archived    interface{} `json:"archived,omitempty"` // null, datetime string, or bool
+	Deleted     interface{} `json:"deleted,omitempty"`  // null, datetime string, or bool
 }
 
 // FileDates holds date fields for a file

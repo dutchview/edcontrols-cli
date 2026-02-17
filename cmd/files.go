@@ -142,8 +142,8 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tGROUP\tSIZE\tCREATED")
-	fmt.Fprintln(w, "--\t----\t-----\t----\t-------")
+	fmt.Fprintln(w, "ID\tNAME\tGROUP\tSIZE\tSTATUS\tCREATED")
+	fmt.Fprintln(w, "--\t----\t-----\t----\t------\t-------")
 
 	for _, f := range files {
 		fileID := f.CouchDbID
@@ -167,13 +167,21 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 			size = formatFileSize(sizeBytes)
 		}
 
+		// Determine status
+		status := "active"
+		if isFieldSet(f.Deleted) {
+			status = "deleted"
+		} else if isFieldSet(f.Archived) {
+			status = "archived"
+		}
+
 		name := f.Name
 		if name == "" {
 			name = f.FileName
 		}
 		name = truncate(name, 40)
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", fileID, name, groupName, size, created)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", fileID, name, groupName, size, status, created)
 	}
 
 	w.Flush()

@@ -45,3 +45,19 @@ func humanID(couchDbID string) string {
 	}
 	return strings.ToUpper(string(runes))
 }
+
+// isFieldSet checks if an interface{} field is set (not nil, not empty, not false).
+// Used for fields like Archived/Deleted that can be null, bool, or datetime string.
+func isFieldSet(v interface{}) bool {
+	if v == nil {
+		return false
+	}
+	switch val := v.(type) {
+	case bool:
+		return val
+	case string:
+		return val != ""
+	default:
+		return true
+	}
+}
