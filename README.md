@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/edcontrols-logo.svg" alt="EdControls Logo" width="300">
+</p>
+
 # EdControls CLI
 
 A command-line interface for interacting with the EdControls platform. Manage projects, tickets, audits, templates, maps, and files directly from your terminal.
