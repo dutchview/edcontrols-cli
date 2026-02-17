@@ -256,6 +256,68 @@ ec tickets get CC455B -j
 | `-d, --database=STRING` | Project database name (optional, will search if not provided) |
 | `-j, --json` | Output as JSON |
 
+#### tickets update
+
+Update ticket fields including title, description, due date, responsible, status, and comments.
+
+```bash
+# View current ticket values (no flags)
+ec tickets update nl_company_abc123 ticket-id-here
+
+# Update title
+ec tickets update nl_company_abc123 ticket-id-here -t "New Title"
+
+# Update description (supports HTML)
+ec tickets update nl_company_abc123 ticket-id-here -d "<p>New description</p>"
+
+# Set due date
+ec tickets update nl_company_abc123 ticket-id-here --due-date "2026-03-15T12:00:00.000Z"
+
+# Clear due date
+ec tickets update nl_company_abc123 ticket-id-here --clear-due
+
+# Assign responsible (sets status to "started")
+ec tickets update nl_company_abc123 ticket-id-here -r user@example.com
+
+# Clear responsible (sets status back to "created")
+ec tickets update nl_company_abc123 ticket-id-here --clear-responsible
+
+# Mark as completed (uses existing responsible or current user)
+ec tickets update nl_company_abc123 ticket-id-here --complete
+
+# Assign and complete in one command
+ec tickets update nl_company_abc123 ticket-id-here -r user@example.com --complete
+
+# Add a comment
+ec tickets update nl_company_abc123 ticket-id-here -m "This is a comment"
+
+# Multiple updates at once
+ec tickets update nl_company_abc123 ticket-id-here \
+  -t "Updated Title" \
+  -d "<p>New description</p>" \
+  -r user@example.com \
+  --due-date "2026-03-15T12:00:00.000Z" \
+  -m "Added via CLI"
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-t, --title=STRING` | New title for the ticket |
+| `-d, --description=STRING` | New description (supports HTML) |
+| `--due-date=STRING` | Due date (ISO 8601 format) |
+| `--clear-due` | Clear the due date |
+| `-r, --responsible=STRING` | Assign to this email (sets status to started) |
+| `--clear-responsible` | Clear the responsible (sets status to created) |
+| `--complete` | Mark as completed |
+| `-m, --comment=STRING` | Add a comment to the ticket |
+
+**Notes:**
+- All updates are tracked in the operation timeline
+- HTML in descriptions and comments is sanitized to prevent XSS
+- Running without flags shows current values
+
 #### tickets assign
 
 Assign a ticket to someone.
@@ -599,6 +661,63 @@ ec maps get abc123def456789 -j
 | `-d, --database=STRING` | Project database name (optional, will search if not provided) |
 | `-j, --json` | Output as JSON |
 
+#### maps add
+
+Upload a PDF or image file and convert it to a tiled map.
+
+```bash
+# Add a map from a PDF file
+ec maps add nl_company_abc123 file-group-id-here /path/to/floorplan.pdf
+
+# Add with custom name
+ec maps add nl_company_abc123 file-group-id-here /path/to/floorplan.pdf -n "Ground Floor"
+
+# Add with tags
+ec maps add nl_company_abc123 file-group-id-here /path/to/floorplan.pdf -t "architecture" -t "floor-1"
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-n, --name=STRING` | Map name (defaults to filename) |
+| `-t, --tags=TAGS,...` | Tags to add (can be specified multiple times) |
+
+**Notes:**
+- Only PDF, PNG, and JPG files can be converted to maps
+- The file is first uploaded to the file group, then converted to a tiled map
+- Conversion is queued and may take some time to complete
+
+#### maps delete
+
+Delete a map.
+
+```bash
+ec maps delete nl_company_abc123 map-id-here
+```
+
+#### maps tags
+
+View or update tags on a map.
+
+```bash
+# View current tags
+ec maps tags nl_company_abc123 map-id-here
+
+# Set tags (replaces existing)
+ec maps tags nl_company_abc123 map-id-here -t tag1 -t tag2
+
+# Clear all tags
+ec maps tags nl_company_abc123 map-id-here --clear
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-t, --tags=TAGS,...` | Tags to set (replaces existing tags) |
+| `--clear` | Clear all tags from the map |
+
 #### maps groups list
 
 List map groups for a project.
@@ -697,6 +816,104 @@ ec files get abc123def456789 -j
 |------|-------------|
 | `-d, --database=STRING` | Project database name (optional, will search if not provided) |
 | `-j, --json` | Output as JSON |
+
+#### files add
+
+Upload a new file to a project.
+
+```bash
+# Upload a file to a file group
+ec files add nl_company_abc123 group-id-here /path/to/document.pdf
+
+# Upload with custom name
+ec files add nl_company_abc123 group-id-here /path/to/document.pdf -n "Custom Name.pdf"
+
+# Upload with tags
+ec files add nl_company_abc123 group-id-here /path/to/document.pdf -t "report" -t "2026"
+
+# Output as JSON
+ec files add nl_company_abc123 group-id-here /path/to/document.pdf -j
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-n, --name=STRING` | Custom file name (defaults to original filename) |
+| `-t, --tags=TAGS,...` | Tags to add (can be specified multiple times) |
+| `-j, --json` | Output as JSON |
+
+#### files download
+
+Download a file.
+
+```bash
+# Download file (uses original filename)
+ec files download file-id-here
+
+# Download with specific database
+ec files download file-id-here -d nl_company_abc123
+
+# Download to custom path
+ec files download file-id-here -o /path/to/save/file.pdf
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-d, --database=STRING` | Project database name (optional, will search if not provided) |
+| `-o, --output=STRING` | Output file path (defaults to original filename) |
+
+#### files archive / unarchive
+
+Archive or unarchive a file.
+
+```bash
+# Archive a file
+ec files archive nl_company_abc123 file-id-here
+
+# Unarchive a file
+ec files unarchive nl_company_abc123 file-id-here
+```
+
+#### files delete
+
+Delete a file.
+
+```bash
+ec files delete nl_company_abc123 file-id-here
+```
+
+#### files tags
+
+View or update tags on a file.
+
+```bash
+# View current tags
+ec files tags nl_company_abc123 file-id-here
+
+# Set tags (replaces existing)
+ec files tags nl_company_abc123 file-id-here -t tag1 -t tag2
+
+# Clear all tags
+ec files tags nl_company_abc123 file-id-here --clear
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-t, --tags=TAGS,...` | Tags to set (replaces existing tags) |
+| `--clear` | Clear all tags from the file |
+
+#### files to-map
+
+Convert a file to a map (tiled drawing). Only PDF, PNG, and JPG files can be converted.
+
+```bash
+ec files to-map nl_company_abc123 file-id-here
+```
 
 #### files groups list
 

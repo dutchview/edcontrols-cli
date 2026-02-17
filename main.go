@@ -20,12 +20,12 @@ var CLI struct {
 	// Commands
 	Whoami    cmd.WhoamiCmd    `cmd:"" help:"Show current user info"`
 	Contracts cmd.ContractsCmd `cmd:"" help:"List contracts (clients)"`
-	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects"`
-	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets"`
-	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits"`
-	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates"`
-	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps (drawings)"`
-	Files     cmd.FilesCmd     `cmd:"" help:"Manage files"`
+	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects (list, get)"`
+	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets (list, get, update, assign, open, close)"`
+	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get)"`
+	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create-audit)"`
+	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps (list, get, add, delete, tags)"`
+	Files     cmd.FilesCmd     `cmd:"" help:"Manage files (list, get, add, download, archive, delete, tags, to-map)"`
 	Configure ConfigureCmd     `cmd:"" help:"Show configuration help"`
 }
 
