@@ -417,7 +417,7 @@ ec audits list nl_company_abc123 -j
 
 | Flag | Description |
 |------|-------------|
-| `-s, --status=STRING` | Filter by status (started, completed) |
+| `-s, --status=STRING` | Filter by status (started, In Progress, completed) |
 | `-t, --template=STRING` | Filter by template ID |
 | `--search=STRING` | Search by title |
 | `-a, --auditor=STRING` | Filter by auditor email |
@@ -1050,12 +1050,15 @@ Tickets have three possible status values:
 
 ### Audit Statuses
 
-Audits have two possible status values:
+Audits have three possible status values:
 
 | Status | Description |
 |--------|-------------|
-| `started` | Audit is in progress |
+| `started` | Audit has been started |
+| `In Progress` | Audit is actively being worked on |
 | `completed` | Audit has been completed |
+
+Note: Both `started` and `In Progress` indicate an active audit. The difference is historical - newer audits typically use `started`.
 
 ---
 

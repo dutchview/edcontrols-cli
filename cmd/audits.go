@@ -17,7 +17,7 @@ type AuditsCmd struct {
 
 type AuditsListCmd struct {
 	Database    string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
-	Status      string `short:"s" enum:"started,completed," default:"" help:"Filter by status (started, completed)"`
+	Status      string `short:"s" enum:"started,In Progress,completed," default:"" help:"Filter by status (started, In Progress, completed)"`
 	Template    string `short:"t" help:"Filter by template ID"`
 	Search      string `help:"Search by title"`
 	Auditor     string `short:"a" help:"Filter by auditor email"`
