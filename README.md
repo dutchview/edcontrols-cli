@@ -180,10 +180,10 @@ ec tickets list nl_company_abc123
 # List tickets across ALL active projects (cross-project search)
 ec tickets list
 
-# Filter by status
-ec tickets list nl_company_abc123 -s "Open"
-ec tickets list nl_company_abc123 -s "In Progress"
-ec tickets list nl_company_abc123 -s "Done"
+# Filter by status (available: created, started, completed)
+ec tickets list nl_company_abc123 -s "created"
+ec tickets list nl_company_abc123 -s "started"
+ec tickets list nl_company_abc123 -s "completed"
 
 # Search by title
 ec tickets list nl_company_abc123 --search "foundation"
@@ -218,7 +218,7 @@ ec tickets list nl_company_abc123 -j
 
 | Flag | Description |
 |------|-------------|
-| `-s, --status=STRING` | Filter by status (Open, In Progress, Done) |
+| `-s, --status=STRING` | Filter by status (created, started, completed) |
 | `--search=STRING` | Search by title |
 | `-r, --responsible=STRING` | Filter by responsible person email |
 | `-t, --tag=STRING` | Filter by tag |
@@ -328,7 +328,7 @@ ec tickets assign nl_company_abc123 ticket-id-here john@example.com
 
 #### tickets open
 
-Reopen a ticket (set status to Open).
+Reopen a ticket (set status to created).
 
 ```bash
 ec tickets open nl_company_abc123 ticket-id-here
@@ -336,7 +336,7 @@ ec tickets open nl_company_abc123 ticket-id-here
 
 #### tickets close
 
-Close a ticket (set status to Done).
+Close a ticket (set status to completed).
 
 ```bash
 ec tickets close nl_company_abc123 ticket-id-here
@@ -417,7 +417,7 @@ ec audits list nl_company_abc123 -j
 
 | Flag | Description |
 |------|-------------|
-| `-s, --status=STRING` | Filter by status (comma-separated) |
+| `-s, --status=STRING` | Filter by status (started, completed) |
 | `-t, --template=STRING` | Filter by template ID |
 | `--search=STRING` | Search by title |
 | `-a, --auditor=STRING` | Filter by auditor email |
@@ -1030,6 +1030,35 @@ ec files groups list nl_company_abc123 -j
 
 ---
 
+## Status Values
+
+### Ticket Statuses
+
+Tickets have three possible status values:
+
+| Status | Description |
+|--------|-------------|
+| `created` | New ticket, no responsible person assigned |
+| `started` | Ticket has been assigned to someone |
+| `completed` | Ticket has been marked as done |
+
+**Status transitions:**
+- When a responsible person is assigned, status automatically changes to `started`
+- When the responsible is cleared, status reverts to `created`
+- The `tickets close` command sets status to `completed`
+- The `tickets open` command sets status back to `created`
+
+### Audit Statuses
+
+Audits have two possible status values:
+
+| Status | Description |
+|--------|-------------|
+| `started` | Audit is in progress |
+| `completed` | Audit has been completed |
+
+---
+
 ## Human IDs
 
 Tickets and audits support "human IDs" for easier identification. A human ID is derived from the last 6 characters of the CouchDB document ID, reversed and uppercased.
@@ -1060,8 +1089,8 @@ All commands support JSON output with the `-j` or `--json` flag. This is useful 
 # Get ticket data and extract specific field with jq
 ec tickets get CC455B -j | jq '.content.title'
 
-# List all open tickets and count them
-ec tickets list nl_company_abc123 -s "Open" -j | jq '.[] | .id' | wc -l
+# List all new tickets and count them
+ec tickets list nl_company_abc123 -s "created" -j | jq '.[] | .id' | wc -l
 
 # Export project list to file
 ec projects list -j > projects.json
@@ -1098,8 +1127,8 @@ ec whoami
 # List your projects
 ec projects list
 
-# View open tickets for a project
-ec tickets list nl_company_abc123 -s "Open"
+# View new/unassigned tickets for a project
+ec tickets list nl_company_abc123 -s "created"
 
 # Get details on a specific ticket
 ec tickets get CC455B
@@ -1227,8 +1256,8 @@ ec projects list -j > projects.json
 # Get ticket titles
 ec tickets list nl_company_abc123 -j | jq '.[].content.title'
 
-# Count open tickets
-ec tickets list nl_company_abc123 -s "Open" -j | jq 'length'
+# Count new/unassigned tickets
+ec tickets list nl_company_abc123 -s "created" -j | jq 'length'
 
 # Get audit IDs for a specific template
 ec audits list nl_company_abc123 -t template-id -j | jq '.[].couchDbId'

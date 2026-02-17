@@ -14,8 +14,8 @@ type TicketsCmd struct {
 	Get       TicketsGetCmd       `cmd:"" help:"Get ticket details"`
 	Update    TicketsUpdateCmd    `cmd:"" help:"Update ticket fields (-t title, -d description, --due-date, --clear-due, -r responsible, --clear-responsible, --complete, -m comment)"`
 	Assign    TicketsAssignCmd    `cmd:"" help:"Assign a ticket to someone"`
-	Open      TicketsOpenCmd      `cmd:"" help:"Open a ticket (set status to Open)"`
-	Close     TicketsCloseCmd     `cmd:"" help:"Close a ticket (set status to Done)"`
+	Open      TicketsOpenCmd      `cmd:"" help:"Reopen a ticket (set status to created)"`
+	Close     TicketsCloseCmd     `cmd:"" help:"Close a ticket (set status to completed)"`
 	Archive   TicketsArchiveCmd   `cmd:"" help:"Archive a ticket"`
 	Unarchive TicketsUnarchiveCmd `cmd:"" help:"Unarchive a ticket"`
 	Delete    TicketsDeleteCmd    `cmd:"" help:"Delete a ticket"`
@@ -23,7 +23,7 @@ type TicketsCmd struct {
 
 type TicketsListCmd struct {
 	Database    string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
-	Status      string `short:"s" help:"Filter by status (Open, In Progress, Done)"`
+	Status      string `short:"s" enum:"created,started,completed," default:"" help:"Filter by status (created, started, completed)"`
 	Search      string `help:"Search by title"`
 	Responsible string `short:"r" help:"Filter by responsible person email"`
 	Tag         string `short:"t" help:"Filter by tag"`
@@ -333,7 +333,7 @@ type TicketsOpenCmd struct {
 }
 
 func (c *TicketsOpenCmd) Run(client *api.Client) error {
-	status := "Open"
+	status := "created"
 	opts := api.UpdateTicketOptions{
 		Status: &status,
 	}
@@ -342,7 +342,7 @@ func (c *TicketsOpenCmd) Run(client *api.Client) error {
 		return err
 	}
 
-	fmt.Printf("Ticket %s opened\n", c.TicketID)
+	fmt.Printf("Ticket %s reopened (status: created)\n", c.TicketID)
 	return nil
 }
 
@@ -352,7 +352,7 @@ type TicketsCloseCmd struct {
 }
 
 func (c *TicketsCloseCmd) Run(client *api.Client) error {
-	status := "Done"
+	status := "completed"
 	opts := api.UpdateTicketOptions{
 		Status: &status,
 	}
@@ -361,7 +361,7 @@ func (c *TicketsCloseCmd) Run(client *api.Client) error {
 		return err
 	}
 
-	fmt.Printf("Ticket %s closed\n", c.TicketID)
+	fmt.Printf("Ticket %s closed (status: completed)\n", c.TicketID)
 	return nil
 }
 
