@@ -425,6 +425,7 @@ type TicketsUpdateCmd struct {
 	Responsible      string `short:"r" help:"Assign to this email (also sets status to started)"`
 	ClearResponsible bool   `help:"Clear the responsible person (sets status back to created)"`
 	Complete         bool   `help:"Mark ticket as completed (uses existing responsible or current user)"`
+	Comment          string `short:"m" help:"Add a comment to the ticket"`
 }
 
 func (c *TicketsUpdateCmd) Run(client *api.Client) error {
@@ -449,9 +450,14 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	if c.Responsible != "" {
 		opts.Responsible = &c.Responsible
 	}
+	if c.Comment != "" {
+		// Sanitize HTML in comment to prevent XSS
+		sanitized := sanitizeHTML(c.Comment)
+		opts.Comment = &sanitized
+	}
 
 	// If no updates specified, show current values
-	if opts.Title == nil && opts.Description == nil && opts.DueDate == nil && !opts.ClearDue && opts.Responsible == nil && !opts.ClearResponsible && !opts.Complete {
+	if opts.Title == nil && opts.Description == nil && opts.DueDate == nil && !opts.ClearDue && opts.Responsible == nil && !opts.ClearResponsible && !opts.Complete && opts.Comment == nil {
 		ticket, err := client.GetTicket(c.Database, c.TicketID)
 		if err != nil {
 			return fmt.Errorf("getting ticket: %w", err)
@@ -520,6 +526,9 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	}
 	if opts.ClearResponsible {
 		updates = append(updates, "responsible cleared (status->created)")
+	}
+	if opts.Comment != nil {
+		updates = append(updates, fmt.Sprintf("comment added: %q", truncate(*opts.Comment, 50)))
 	}
 
 	fmt.Printf("Ticket %s updated: %s\n", c.TicketID, strings.Join(updates, ", "))

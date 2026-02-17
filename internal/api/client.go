@@ -612,6 +612,7 @@ type UpdateTicketFieldsOptions struct {
 	Responsible      *string // Email of the responsible person
 	ClearResponsible bool    // Clear the responsible (sets status back to created)
 	Complete         bool    // Mark ticket as completed (requires Responsible to be set)
+	Comment          *string // Add a comment to the ticket
 }
 
 // UpdateTicket updates a ticket via the securedata endpoint
@@ -1885,6 +1886,33 @@ func (c *Client) UpdateTicketFields(database, ticketID string, opts UpdateTicket
 			oldValues = append(oldValues, oldResponsible)
 			newValues = append(newValues, newResponsible)
 		}
+	}
+
+	// Handle adding a comment
+	if opts.Comment != nil && *opts.Comment != "" {
+		now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+
+		// Create the comment object
+		comment := map[string]interface{}{
+			"attachments":  []interface{}{},
+			"author":       email,
+			"time":         now,
+			"note":         *opts.Comment,
+			"public":       true,
+			"allowedUsers": "",
+		}
+
+		// Append to comments array
+		if comments, ok := doc["comments"].([]interface{}); ok {
+			doc["comments"] = append(comments, comment)
+		} else {
+			doc["comments"] = []interface{}{comment}
+		}
+
+		// Add to operation record
+		changedProps = append(changedProps, "comment")
+		oldValues = append(oldValues, nil)
+		newValues = append(newValues, *opts.Comment)
 	}
 
 	// If no changes, return early
