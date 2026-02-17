@@ -142,8 +142,8 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tGROUP\tSIZE\tSTATUS\tCREATED")
-	fmt.Fprintln(w, "--\t----\t-----\t----\t------\t-------")
+	fmt.Fprintln(w, "ID\tNAME\tGROUP\tSIZE\tSTATUS\tCREATED\tMODIFIED")
+	fmt.Fprintln(w, "--\t----\t-----\t----\t------\t-------\t--------")
 
 	for _, f := range files {
 		fileID := f.CouchDbID
@@ -154,6 +154,11 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 		created := "-"
 		if f.Dates != nil && f.Dates.CreationDate != "" && len(f.Dates.CreationDate) >= 10 {
 			created = f.Dates.CreationDate[:10]
+		}
+
+		modified := "-"
+		if f.Dates != nil && f.Dates.LastModified != "" && len(f.Dates.LastModified) >= 10 {
+			modified = f.Dates.LastModified[:10]
 		}
 
 		groupName := "-"
@@ -181,7 +186,7 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 		}
 		name = truncate(name, 40)
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", fileID, name, groupName, size, status, created)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", fileID, name, groupName, size, status, created, modified)
 	}
 
 	w.Flush()

@@ -144,8 +144,8 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tGROUP\tCREATED\tMODIFIED")
-	fmt.Fprintln(w, "--\t----\t-----\t-------\t--------")
+	fmt.Fprintln(w, "ID\tNAME\tGROUP\tSTATUS\tCREATED\tMODIFIED")
+	fmt.Fprintln(w, "--\t----\t-----\t------\t-------\t--------")
 
 	for _, m := range maps {
 		mapID := m.CouchDbID
@@ -155,7 +155,7 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 
 		// Handle special Google Maps entry
 		if mapID == "EDGeomapMapID" {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "<google-maps>", "Google Maps", "-", "-", "-")
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", "<google-maps>", "Google Maps", "-", "-", "-", "-")
 			continue
 		}
 
@@ -174,8 +174,16 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 			groupName = truncate(name, 25)
 		}
 
+		// Determine status
+		status := "active"
+		if isFieldSet(m.Deleted) {
+			status = "deleted"
+		} else if isFieldSet(m.Archived) {
+			status = "archived"
+		}
+
 		name := truncate(m.Name, 40)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", mapID, name, groupName, created, modified)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", mapID, name, groupName, status, created, modified)
 	}
 
 	w.Flush()

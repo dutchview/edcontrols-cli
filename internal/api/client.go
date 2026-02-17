@@ -183,14 +183,16 @@ type Ticket struct {
 
 // Map represents an EdControls map (drawing)
 type Map struct {
-	ID        string    `json:"id,omitempty"`
-	CouchID   string    `json:"_id,omitempty"`
-	CouchDbID string    `json:"couchDbId,omitempty"`
-	Name      string    `json:"name"`
-	GroupID   string    `json:"groupId,omitempty"`
-	GroupName string    `json:"groupName,omitempty"`
-	Dates     *MapDates `json:"dates,omitempty"`
-	Tags      []string  `json:"tags,omitempty"`
+	ID        string      `json:"id,omitempty"`
+	CouchID   string      `json:"_id,omitempty"`
+	CouchDbID string      `json:"couchDbId,omitempty"`
+	Name      string      `json:"name"`
+	GroupID   string      `json:"groupId,omitempty"`
+	GroupName string      `json:"groupName,omitempty"`
+	Dates     *MapDates   `json:"dates,omitempty"`
+	Tags      []string    `json:"tags,omitempty"`
+	Archived  interface{} `json:"archived,omitempty"` // null, datetime string, or bool
+	Deleted   interface{} `json:"deleted,omitempty"`  // null, datetime string, or bool
 }
 
 // MapDates holds date fields for a map
