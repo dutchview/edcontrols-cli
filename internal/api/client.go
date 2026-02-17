@@ -1174,6 +1174,22 @@ type TemplateGroup struct {
 	Archived  bool   `json:"archived,omitempty"`
 }
 
+// GetTemplateGroup returns a template group by its ID
+func (c *Client) GetTemplateGroup(database, groupID string) (*TemplateGroup, error) {
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(groupID))
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var group TemplateGroup
+	if err := json.Unmarshal(body, &group); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &group, nil
+}
+
 // GetContract returns a contract by its ID from the clients database
 func (c *Client) GetContract(contractID string) (*Contract, error) {
 	endpoint := fmt.Sprintf("/api/v1/securedata/clients/%s", url.PathEscape(contractID))
@@ -2258,6 +2274,107 @@ func (c *Client) CreateTemplateGroup(database, name string) (string, error) {
 	}
 
 	endpoint := fmt.Sprintf("/api/v1/securedata/%s", url.PathEscape(database))
+
+	respBody, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return "", err
+	}
+
+	// Parse response to get the new document ID
+	var resp struct {
+		ID  string `json:"id"`
+		Rev string `json:"rev"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return "", fmt.Errorf("parsing response: %w", err)
+	}
+
+	return resp.ID, nil
+}
+
+// CreateAuditTemplateOptions contains options for creating an audit template
+type CreateAuditTemplateOptions struct {
+	Database string
+	GroupID  string
+	Name     string
+	Tags     []string
+}
+
+// CreateAuditTemplate creates a new audit template in a template group
+func (c *Client) CreateAuditTemplate(opts CreateAuditTemplateOptions) (string, error) {
+	// Get user email
+	email, err := c.Email()
+	if err != nil {
+		return "", fmt.Errorf("getting user email: %w", err)
+	}
+
+	// Get project to find the CouchDB ID
+	project, err := c.GetProject(opts.Database)
+	if err != nil {
+		return "", fmt.Errorf("getting project: %w", err)
+	}
+
+	// Get group to find the group name
+	group, err := c.GetTemplateGroup(opts.Database, opts.GroupID)
+	if err != nil {
+		return "", fmt.Errorf("getting template group: %w", err)
+	}
+
+	now := time.Now().UTC()
+	timestamp := now.Format("2006-01-02T15:04:05.000Z")
+
+	tags := opts.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	doc := map[string]interface{}{
+		"_attachments": map[string]interface{}{},
+		"archived":     nil,
+		"isPublished":  false,
+		"author": map[string]string{
+			"type":  "IB.EdBundle.Document.Person",
+			"email": email,
+		},
+		"dates": map[string]string{
+			"creationDate":     timestamp,
+			"lastModifiedDate": timestamp,
+			"publishedDate":    "",
+		},
+		"group":     group.Name,
+		"auditType": "area",
+		"groupId":   opts.GroupID,
+		"name":      opts.Name,
+		"participants": map[string]interface{}{
+			"type":     "IB.EdBundle.Document.Participants",
+			"informed": []interface{}{},
+		},
+		"project": project.CouchDbID,
+		"questions": []map[string]interface{}{
+			{
+				"categoryName": "Questions",
+				"questions":    []interface{}{},
+				"settings": map[string]interface{}{
+					"duplicate": false,
+				},
+			},
+		},
+		"versionInfo": map[string]interface{}{},
+		"timeline":    []interface{}{},
+		"lastmodifier": map[string]string{
+			"email": email,
+		},
+		"type":                  "IB.EdBundle.Document.AuditTemplate",
+		"tags":                  tags,
+		"answeredStatusEnabled": true,
+	}
+
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return "", fmt.Errorf("marshaling document: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s", url.PathEscape(opts.Database))
 
 	respBody, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
 	if err != nil {

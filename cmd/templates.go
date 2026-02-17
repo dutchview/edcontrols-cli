@@ -11,6 +11,7 @@ import (
 type TemplatesCmd struct {
 	List   TemplatesListCmd   `cmd:"" help:"List audit templates"`
 	Get    TemplatesGetCmd    `cmd:"" help:"Get audit template details"`
+	Create TemplatesCreateCmd `cmd:"" help:"Create a new audit template"`
 	Update TemplatesUpdateCmd `cmd:"" help:"Update an audit template"`
 	Groups TemplateGroupsCmd  `cmd:"" help:"Manage template groups"`
 }
@@ -212,6 +213,40 @@ func (c *TemplatesGetCmd) Run(client *api.Client) error {
 		fmt.Printf("Tags: %v\n", template.Tags)
 	}
 
+	return nil
+}
+
+type TemplatesCreateCmd struct {
+	Database string   `arg:"" help:"Project database name"`
+	GroupID  string   `arg:"" help:"Template group ID"`
+	Name     string   `arg:"" help:"Template name"`
+	Tags     []string `short:"t" help:"Tags to add (can be specified multiple times)"`
+	JSON     bool     `short:"j" help:"Output as JSON"`
+}
+
+func (c *TemplatesCreateCmd) Run(client *api.Client) error {
+	opts := api.CreateAuditTemplateOptions{
+		Database: c.Database,
+		GroupID:  c.GroupID,
+		Name:     c.Name,
+		Tags:     c.Tags,
+	}
+
+	templateID, err := client.CreateAuditTemplate(opts)
+	if err != nil {
+		return fmt.Errorf("creating template: %w", err)
+	}
+
+	if c.JSON {
+		return printJSON(map[string]string{
+			"id":      templateID,
+			"name":    c.Name,
+			"groupId": c.GroupID,
+		})
+	}
+
+	fmt.Printf("Template '%s' created.\n", c.Name)
+	fmt.Printf("ID: %s\n", templateID)
 	return nil
 }
 
