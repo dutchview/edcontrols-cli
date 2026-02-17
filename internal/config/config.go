@@ -11,7 +11,6 @@ import (
 
 type Config struct {
 	Token string
-	Email string
 }
 
 // ConfigLocations returns the list of config file locations that are checked
@@ -58,14 +57,8 @@ func Load(configFile string) (*Config, error) {
 		return nil, fmt.Errorf("EDCONTROLS_ACCESS_TOKEN not set.\n\n%s", configHelp())
 	}
 
-	email := os.Getenv("EDCONTROLS_USER_EMAIL")
-	if email == "" {
-		return nil, fmt.Errorf("EDCONTROLS_USER_EMAIL not set.\n\n%s", configHelp())
-	}
-
 	return &Config{
 		Token: token,
-		Email: email,
 	}, nil
 }
 
@@ -74,15 +67,15 @@ func configHelp() string {
 	var sb strings.Builder
 
 	sb.WriteString("Configuration can be provided via:\n")
-	sb.WriteString("  1. Environment variables (EDCONTROLS_ACCESS_TOKEN, EDCONTROLS_USER_EMAIL)\n")
+	sb.WriteString("  1. Environment variable EDCONTROLS_ACCESS_TOKEN\n")
 	sb.WriteString("  2. A .env file in one of these locations:\n")
 	for _, loc := range locations {
 		sb.WriteString(fmt.Sprintf("     - %s\n", loc))
 	}
 	sb.WriteString("  3. A custom config file via --config flag\n")
+	sb.WriteString("  4. Command line via --token flag\n")
 	sb.WriteString("\nExample .env file:\n")
 	sb.WriteString("  EDCONTROLS_ACCESS_TOKEN=your_bearer_token\n")
-	sb.WriteString("  EDCONTROLS_USER_EMAIL=your_email@company.com\n")
 	sb.WriteString("\nGet your token from the EdControls web interface.")
 
 	return sb.String()

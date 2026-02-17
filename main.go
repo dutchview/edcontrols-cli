@@ -16,7 +16,6 @@ var CLI struct {
 	// Global flags
 	Config string `short:"c" help:"Path to config file (.env format)" type:"path"`
 	Token  string `help:"Access token (overrides config file)" env:"EDCONTROLS_ACCESS_TOKEN"`
-	Email  string `short:"e" help:"User email (overrides config file)" env:"EDCONTROLS_USER_EMAIL"`
 
 	// Commands
 	Contracts cmd.ContractsCmd `cmd:"" help:"List contracts (clients)"`
@@ -65,11 +64,10 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load(CLI.Config)
 	if err != nil {
-		// If token and email are provided via flags, we can skip config file
-		if CLI.Token != "" && CLI.Email != "" {
+		// If token is provided via flag, we can skip config file
+		if CLI.Token != "" {
 			cfg = &config.Config{
 				Token: CLI.Token,
-				Email: CLI.Email,
 			}
 		} else {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -77,12 +75,9 @@ func main() {
 		}
 	}
 
-	// Override config with command line flags if provided
+	// Override config with command line flag if provided
 	if CLI.Token != "" {
 		cfg.Token = CLI.Token
-	}
-	if CLI.Email != "" {
-		cfg.Email = CLI.Email
 	}
 
 	// Create API client

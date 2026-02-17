@@ -16,19 +16,58 @@ const baseURL = "https://web.edcontrols.com"
 type Client struct {
 	httpClient *http.Client
 	token      string
-	email      string
+	email      string // Cached after first fetch
 }
 
 func NewClient(cfg *config.Config) *Client {
 	return &Client{
 		httpClient: &http.Client{},
 		token:      cfg.Token,
-		email:      cfg.Email,
 	}
 }
 
-func (c *Client) Email() string {
-	return c.email
+// UserInfo represents the current user's information from the auth endpoint
+type UserInfo struct {
+	Email string `json:"email"`
+	Name  struct {
+		FirstName string `json:"firstName"`
+		LastName  string `json:"lastName"`
+	} `json:"name"`
+	CompanyName string   `json:"companyName"`
+	Roles       []string `json:"roles"`
+	Enabled     bool     `json:"enabled"`
+}
+
+// GetCurrentUser fetches the current user's information from the auth endpoint
+func (c *Client) GetCurrentUser() (*UserInfo, error) {
+	body, err := c.doRequest("GET", "/api/v1/users/me", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var userInfo UserInfo
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return nil, fmt.Errorf("parsing user info: %w", err)
+	}
+
+	// Cache the email
+	c.email = userInfo.Email
+
+	return &userInfo, nil
+}
+
+// Email returns the current user's email, fetching it if not cached
+func (c *Client) Email() (string, error) {
+	if c.email != "" {
+		return c.email, nil
+	}
+
+	userInfo, err := c.GetCurrentUser()
+	if err != nil {
+		return "", fmt.Errorf("fetching user info: %w", err)
+	}
+
+	return userInfo.Email, nil
 }
 
 func (c *Client) doRequest(method, endpoint string, body io.Reader) ([]byte, error) {
@@ -298,7 +337,11 @@ type ListProjectsOptions struct {
 
 // ListProjects returns all projects accessible to the authenticated user
 func (c *Client) ListProjects(opts ListProjectsOptions) ([]Project, int, error) {
-	endpoint := fmt.Sprintf("/api/v2/licenseserver/user/%s/projects", url.PathEscape(c.email))
+	email, err := c.Email()
+	if err != nil {
+		return nil, 0, fmt.Errorf("getting user email: %w", err)
+	}
+	endpoint := fmt.Sprintf("/api/v2/licenseserver/user/%s/projects", url.PathEscape(email))
 	body, err := c.doRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, 0, err
