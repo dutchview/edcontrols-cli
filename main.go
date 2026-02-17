@@ -21,7 +21,7 @@ var CLI struct {
 	Whoami    cmd.WhoamiCmd    `cmd:"" help:"Show current user info"`
 	Contracts cmd.ContractsCmd `cmd:"" help:"List contracts (clients)"`
 	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects (list, get)"`
-	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets (list, get, update, assign, open, close)"`
+	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets (list, get, update, assign, open, close, archive, unarchive, delete)"`
 	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get)"`
 	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create-audit)"`
 	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps (list, get, add, delete, tags)"`

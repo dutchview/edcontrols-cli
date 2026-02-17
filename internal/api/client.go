@@ -2114,3 +2114,107 @@ func (c *Client) DownloadFile(database, fileID, versionID, fileName string) ([]b
 
 	return data, nil
 }
+
+// ArchiveTicket archives or unarchives a ticket
+func (c *Client) ArchiveTicket(database, ticketID string, archive bool) error {
+	// Get the current document
+	doc, err := c.GetDocument(database, ticketID)
+	if err != nil {
+		return fmt.Errorf("getting ticket: %w", err)
+	}
+
+	// Get user email for operation record
+	email, err := c.Email()
+	if err != nil {
+		return fmt.Errorf("getting user email: %w", err)
+	}
+
+	now := time.Now().UTC()
+	timestamp := now.Format("2006-01-02T15:04:05.000Z")
+
+	// Build operation record
+	var oldValue interface{}
+	var newValue interface{}
+
+	if archive {
+		oldValue = doc["archived"]
+		newValue = timestamp
+		doc["archived"] = timestamp
+	} else {
+		oldValue = doc["archived"]
+		newValue = nil
+		doc["archived"] = nil
+	}
+
+	operation := map[string]interface{}{
+		"changedProperties": []string{"archived"},
+		"oldValues":         []interface{}{oldValue},
+		"newValues":         []interface{}{newValue},
+		"author":            email,
+		"time":              timestamp,
+		"summary":           "user updated following fields",
+		"actionType":        "updated",
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+	}
+
+	// Append to operation array
+	if ops, ok := doc["operation"].([]interface{}); ok {
+		doc["operation"] = append(ops, operation)
+	} else {
+		doc["operation"] = []interface{}{operation}
+	}
+
+	// Update last modified date
+	if dates, ok := doc["dates"].(map[string]interface{}); ok {
+		dates["lastModifiedDate"] = timestamp
+	}
+
+	// Save the document
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshaling document: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s",
+		url.PathEscape(database),
+		url.PathEscape(ticketID))
+
+	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
+	return err
+}
+
+// DeleteTickets deletes tickets using the bulk endpoint
+func (c *Client) DeleteTickets(database string, ticketIDs []string) error {
+	now := time.Now().UTC()
+	timeOnly := now.Format("15:04:05")
+
+	reqBody := map[string]interface{}{
+		"status":         "",
+		"database":       database,
+		"channelId":      "",
+		"tags":           nil,
+		"progressLabels": nil,
+		"time":           timeOnly,
+		"operationType":  "delete",
+		"replaceTag":     "",
+		"modules":        []string{},
+		"roles":          nil,
+		"documentIds":    ticketIDs,
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+		"actionOnRoles": []string{},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	_, err = c.doRequest("POST", "/api/v1/bulk/ticket", strings.NewReader(string(jsonBody)))
+	return err
+}

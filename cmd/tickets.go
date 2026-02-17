@@ -10,12 +10,15 @@ import (
 )
 
 type TicketsCmd struct {
-	List   TicketsListCmd   `cmd:"" help:"List tickets"`
-	Get    TicketsGetCmd    `cmd:"" help:"Get ticket details"`
-	Update TicketsUpdateCmd `cmd:"" help:"Update ticket fields (-t title, -d description, --due-date, --clear-due, -r responsible, --clear-responsible, --complete, -m comment)"`
-	Assign TicketsAssignCmd `cmd:"" help:"Assign a ticket to someone"`
-	Open   TicketsOpenCmd   `cmd:"" help:"Open a ticket (set status to Open)"`
-	Close  TicketsCloseCmd  `cmd:"" help:"Close a ticket (set status to Done)"`
+	List      TicketsListCmd      `cmd:"" help:"List tickets"`
+	Get       TicketsGetCmd       `cmd:"" help:"Get ticket details"`
+	Update    TicketsUpdateCmd    `cmd:"" help:"Update ticket fields (-t title, -d description, --due-date, --clear-due, -r responsible, --clear-responsible, --complete, -m comment)"`
+	Assign    TicketsAssignCmd    `cmd:"" help:"Assign a ticket to someone"`
+	Open      TicketsOpenCmd      `cmd:"" help:"Open a ticket (set status to Open)"`
+	Close     TicketsCloseCmd     `cmd:"" help:"Close a ticket (set status to Done)"`
+	Archive   TicketsArchiveCmd   `cmd:"" help:"Archive a ticket"`
+	Unarchive TicketsUnarchiveCmd `cmd:"" help:"Unarchive a ticket"`
+	Delete    TicketsDeleteCmd    `cmd:"" help:"Delete a ticket"`
 }
 
 type TicketsListCmd struct {
@@ -532,5 +535,44 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	}
 
 	fmt.Printf("Ticket %s updated: %s\n", c.TicketID, strings.Join(updates, ", "))
+	return nil
+}
+
+type TicketsArchiveCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	TicketID string `arg:"" help:"Ticket ID"`
+}
+
+func (c *TicketsArchiveCmd) Run(client *api.Client) error {
+	if err := client.ArchiveTicket(c.Database, c.TicketID, true); err != nil {
+		return fmt.Errorf("archiving ticket: %w", err)
+	}
+	fmt.Printf("Ticket %s archived.\n", c.TicketID)
+	return nil
+}
+
+type TicketsUnarchiveCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	TicketID string `arg:"" help:"Ticket ID"`
+}
+
+func (c *TicketsUnarchiveCmd) Run(client *api.Client) error {
+	if err := client.ArchiveTicket(c.Database, c.TicketID, false); err != nil {
+		return fmt.Errorf("unarchiving ticket: %w", err)
+	}
+	fmt.Printf("Ticket %s unarchived.\n", c.TicketID)
+	return nil
+}
+
+type TicketsDeleteCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	TicketID string `arg:"" help:"Ticket ID"`
+}
+
+func (c *TicketsDeleteCmd) Run(client *api.Client) error {
+	if err := client.DeleteTickets(c.Database, []string{c.TicketID}); err != nil {
+		return fmt.Errorf("deleting ticket: %w", err)
+	}
+	fmt.Printf("Ticket %s deleted.\n", c.TicketID)
 	return nil
 }
