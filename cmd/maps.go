@@ -488,15 +488,31 @@ func (c *MapsDeleteCmd) Run(client *api.Client) error {
 type MapsTagsCmd struct {
 	Database string   `arg:"" help:"Project database name"`
 	MapID    string   `arg:"" help:"Map ID (full CouchDB ID)"`
-	Tags     []string `short:"t" help:"Tags to set (replaces existing tags, omit to clear all tags)"`
+	Tags     []string `short:"t" help:"Tags to set (replaces existing tags)"`
+	Clear    bool     `help:"Clear all tags from the map"`
 }
 
 func (c *MapsTagsCmd) Run(client *api.Client) error {
+	// If no tags specified and not clearing, list current tags
+	if len(c.Tags) == 0 && !c.Clear {
+		m, err := client.GetMap(c.Database, c.MapID)
+		if err != nil {
+			return fmt.Errorf("getting map: %w", err)
+		}
+		if len(m.Tags) == 0 {
+			fmt.Println("No tags.")
+		} else {
+			fmt.Printf("Tags: %v\n", m.Tags)
+		}
+		return nil
+	}
+
+	// Clear or update tags
 	if err := client.UpdateDocumentTags(c.Database, c.MapID, c.Tags); err != nil {
 		return fmt.Errorf("updating tags: %w", err)
 	}
 
-	if len(c.Tags) == 0 {
+	if c.Clear {
 		fmt.Printf("Tags cleared from map %s.\n", c.MapID)
 	} else {
 		fmt.Printf("Tags updated on map %s: %v\n", c.MapID, c.Tags)

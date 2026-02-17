@@ -676,15 +676,31 @@ func isValidMapFileType(filename string) bool {
 type FilesTagsCmd struct {
 	Database string   `arg:"" help:"Project database name"`
 	FileID   string   `arg:"" help:"File ID (full CouchDB ID)"`
-	Tags     []string `short:"t" help:"Tags to set (replaces existing tags, omit to clear all tags)"`
+	Tags     []string `short:"t" help:"Tags to set (replaces existing tags)"`
+	Clear    bool     `help:"Clear all tags from the file"`
 }
 
 func (c *FilesTagsCmd) Run(client *api.Client) error {
+	// If no tags specified and not clearing, list current tags
+	if len(c.Tags) == 0 && !c.Clear {
+		f, err := client.GetFile(c.Database, c.FileID)
+		if err != nil {
+			return fmt.Errorf("getting file: %w", err)
+		}
+		if len(f.Tags) == 0 {
+			fmt.Println("No tags.")
+		} else {
+			fmt.Printf("Tags: %v\n", f.Tags)
+		}
+		return nil
+	}
+
+	// Clear or update tags
 	if err := client.UpdateDocumentTags(c.Database, c.FileID, c.Tags); err != nil {
 		return fmt.Errorf("updating tags: %w", err)
 	}
 
-	if len(c.Tags) == 0 {
+	if c.Clear {
 		fmt.Printf("Tags cleared from file %s.\n", c.FileID)
 	} else {
 		fmt.Printf("Tags updated on file %s: %v\n", c.FileID, c.Tags)
