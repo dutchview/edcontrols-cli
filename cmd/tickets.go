@@ -424,6 +424,7 @@ type TicketsUpdateCmd struct {
 	ClearDue         bool   `help:"Clear the due date"`
 	Responsible      string `short:"r" help:"Assign to this email (also sets status to started)"`
 	ClearResponsible bool   `help:"Clear the responsible person (sets status back to created)"`
+	Complete         bool   `help:"Mark ticket as completed (uses existing responsible or current user)"`
 }
 
 func (c *TicketsUpdateCmd) Run(client *api.Client) error {
@@ -431,6 +432,7 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	opts := api.UpdateTicketFieldsOptions{
 		ClearDue:         c.ClearDue,
 		ClearResponsible: c.ClearResponsible,
+		Complete:         c.Complete,
 	}
 
 	if c.Title != "" {
@@ -449,7 +451,7 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	}
 
 	// If no updates specified, show current values
-	if opts.Title == nil && opts.Description == nil && opts.DueDate == nil && !opts.ClearDue && opts.Responsible == nil && !opts.ClearResponsible {
+	if opts.Title == nil && opts.Description == nil && opts.DueDate == nil && !opts.ClearDue && opts.Responsible == nil && !opts.ClearResponsible && !opts.Complete {
 		ticket, err := client.GetTicket(c.Database, c.TicketID)
 		if err != nil {
 			return fmt.Errorf("getting ticket: %w", err)
@@ -509,8 +511,12 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 	if opts.ClearDue {
 		updates = append(updates, "due-date cleared")
 	}
-	if opts.Responsible != nil {
+	if opts.Responsible != nil && opts.Complete {
+		updates = append(updates, fmt.Sprintf("responsible=%s (status->completed)", *opts.Responsible))
+	} else if opts.Responsible != nil {
 		updates = append(updates, fmt.Sprintf("responsible=%s (status->started)", *opts.Responsible))
+	} else if opts.Complete {
+		updates = append(updates, "status->completed")
 	}
 	if opts.ClearResponsible {
 		updates = append(updates, "responsible cleared (status->created)")

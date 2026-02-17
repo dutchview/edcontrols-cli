@@ -611,6 +611,7 @@ type UpdateTicketFieldsOptions struct {
 	ClearDue         bool
 	Responsible      *string // Email of the responsible person
 	ClearResponsible bool    // Clear the responsible (sets status back to created)
+	Complete         bool    // Mark ticket as completed (requires Responsible to be set)
 }
 
 // UpdateTicket updates a ticket via the securedata endpoint
@@ -1779,8 +1780,8 @@ func (c *Client) UpdateTicketFields(database, ticketID string, opts UpdateTicket
 		newValues = append(newValues, newDueDate)
 	}
 
-	// Handle responsible update
-	if opts.Responsible != nil || opts.ClearResponsible {
+	// Handle responsible update and completion
+	if opts.Responsible != nil || opts.ClearResponsible || opts.Complete {
 		// Get old responsible email
 		oldResponsible := ""
 		if participants, ok := doc["participants"].(map[string]interface{}); ok {
@@ -1809,7 +1810,7 @@ func (c *Client) UpdateTicketFields(database, ticketID string, opts UpdateTicket
 			}
 			newStatus = "created"
 		} else if opts.Responsible != nil {
-			// Set responsible and change status to started
+			// Set responsible
 			newResponsible = *opts.Responsible
 			if participants, ok := doc["participants"].(map[string]interface{}); ok {
 				participants["responsible"] = map[string]interface{}{
@@ -1827,7 +1828,38 @@ func (c *Client) UpdateTicketFields(database, ticketID string, opts UpdateTicket
 					"informed":  []interface{}{},
 				}
 			}
-			newStatus = "started"
+
+			// Determine new status based on completion flag
+			if opts.Complete {
+				newStatus = "completed"
+			} else {
+				newStatus = "started"
+			}
+		} else if opts.Complete {
+			// Complete without providing responsible - use existing responsible or current user
+			if oldResponsible != "" {
+				newResponsible = oldResponsible
+			} else {
+				// Use current user as responsible
+				newResponsible = email
+				if participants, ok := doc["participants"].(map[string]interface{}); ok {
+					participants["responsible"] = map[string]interface{}{
+						"type":  "IB.EdBundle.Document.Person",
+						"email": email,
+					}
+				} else {
+					doc["participants"] = map[string]interface{}{
+						"type": "IB.EdBundle.Document.Participants",
+						"responsible": map[string]interface{}{
+							"type":  "IB.EdBundle.Document.Person",
+							"email": email,
+						},
+						"consulted": []interface{}{},
+						"informed":  []interface{}{},
+					}
+				}
+			}
+			newStatus = "completed"
 		}
 
 		// Update state
@@ -1847,10 +1879,12 @@ func (c *Client) UpdateTicketFields(database, ticketID string, opts UpdateTicket
 			newValues = append(newValues, newStatus)
 		}
 
-		// Add responsible change to operation record
-		changedProps = append(changedProps, "responsible")
-		oldValues = append(oldValues, oldResponsible)
-		newValues = append(newValues, newResponsible)
+		// Add responsible change to operation record (only if responsible actually changed)
+		if newResponsible != oldResponsible || opts.ClearResponsible {
+			changedProps = append(changedProps, "responsible")
+			oldValues = append(oldValues, oldResponsible)
+			newValues = append(newValues, newResponsible)
+		}
 	}
 
 	// If no changes, return early
