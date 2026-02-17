@@ -12,7 +12,7 @@ import (
 type TicketsCmd struct {
 	List   TicketsListCmd   `cmd:"" help:"List tickets"`
 	Get    TicketsGetCmd    `cmd:"" help:"Get ticket details"`
-	Update TicketsUpdateCmd `cmd:"" help:"Update ticket (title, description, due date, responsible, status, comments)"`
+	Update TicketsUpdateCmd `cmd:"" help:"Update ticket fields (-t title, -d description, --due-date, --clear-due, -r responsible, --clear-responsible, --complete, -m comment)"`
 	Assign TicketsAssignCmd `cmd:"" help:"Assign a ticket to someone"`
 	Open   TicketsOpenCmd   `cmd:"" help:"Open a ticket (set status to Open)"`
 	Close  TicketsCloseCmd  `cmd:"" help:"Close a ticket (set status to Done)"`
