@@ -619,6 +619,11 @@ func (c *FilesToMapCmd) Run(client *api.Client) error {
 		fileName = f.Name
 	}
 
+	// Validate file type - only PDF, PNG, JPG allowed for maps
+	if !isValidMapFileType(fileName) {
+		return fmt.Errorf("invalid file type: only PDF, PNG, and JPG files can be converted to maps")
+	}
+
 	// Get group name
 	groupID := f.GroupID
 	if groupID == "" {
@@ -641,4 +646,13 @@ func (c *FilesToMapCmd) Run(client *api.Client) error {
 
 	fmt.Printf("File %s queued for conversion to map.\n", fileName)
 	return nil
+}
+
+// isValidMapFileType checks if the file type can be converted to a map
+func isValidMapFileType(filename string) bool {
+	lower := strings.ToLower(filename)
+	return strings.HasSuffix(lower, ".pdf") ||
+		strings.HasSuffix(lower, ".png") ||
+		strings.HasSuffix(lower, ".jpg") ||
+		strings.HasSuffix(lower, ".jpeg")
 }
