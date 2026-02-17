@@ -78,8 +78,8 @@ func (c *ContractsListCmd) Run(client *api.Client) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tPROJECTS\tACTIVE\tPLAN")
-	fmt.Fprintln(w, "----\t--------\t------\t----")
+	fmt.Fprintln(w, "ID\tNAME\tPROJECTS\tACTIVE\tPLAN")
+	fmt.Fprintln(w, "--\t----\t--------\t------\t----")
 
 	for _, contract := range contracts {
 		active := "Yes"
@@ -90,8 +90,8 @@ func (c *ContractsListCmd) Run(client *api.Client) error {
 		if plan == "" {
 			plan = "-"
 		}
-		name := truncate(contract.Name, 40)
-		fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", name, contract.ProjectCount, active, plan)
+		name := truncate(contract.Name, 35)
+		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", contract.ID, name, contract.ProjectCount, active, plan)
 	}
 
 	w.Flush()
