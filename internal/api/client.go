@@ -1525,6 +1525,28 @@ func (c *Client) CreateFile(opts CreateFileOptions) (*CreateFileResponse, error)
 	return &result, nil
 }
 
+// ArchiveFile archives or unarchives files
+func (c *Client) ArchiveFile(database string, fileIDs []string, archive bool) error {
+	reqBody := map[string]interface{}{
+		"id": fileIDs,
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v2/data/file/%s/archive?archive=%t",
+		url.PathEscape(database), archive)
+
+	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
+	return err
+}
+
 // DownloadFile downloads a file and returns its contents
 func (c *Client) DownloadFile(database, fileID, versionID, fileName string) ([]byte, error) {
 	// Build the download URL: /api/v2/data/file/{database}/{fileId}/{versionId}/{fileName}/downloadFile

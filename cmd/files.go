@@ -11,11 +11,13 @@ import (
 )
 
 type FilesCmd struct {
-	List     FilesListCmd     `cmd:"" help:"List files"`
-	Get      FilesGetCmd      `cmd:"" help:"Get file details"`
-	Add      FilesAddCmd      `cmd:"" help:"Add a new file (upload PDF, image, etc.)"`
-	Download FilesDownloadCmd `cmd:"" help:"Download a file"`
-	Groups   FileGroupsCmd    `cmd:"" help:"Manage file groups"`
+	List      FilesListCmd      `cmd:"" help:"List files"`
+	Get       FilesGetCmd       `cmd:"" help:"Get file details"`
+	Add       FilesAddCmd       `cmd:"" help:"Add a new file (upload PDF, image, etc.)"`
+	Download  FilesDownloadCmd  `cmd:"" help:"Download a file"`
+	Archive   FilesArchiveCmd   `cmd:"" help:"Archive a file"`
+	Unarchive FilesUnarchiveCmd `cmd:"" help:"Unarchive a file"`
+	Groups    FileGroupsCmd     `cmd:"" help:"Manage file groups"`
 }
 
 type FileGroupsCmd struct {
@@ -563,5 +565,33 @@ func (c *FilesDownloadCmd) Run(client *api.Client) error {
 
 	fmt.Printf("Downloaded to %s (%s)\n", outputPath, formatFileSize(int64(len(data))))
 
+	return nil
+}
+
+type FilesArchiveCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
+}
+
+func (c *FilesArchiveCmd) Run(client *api.Client) error {
+	if err := client.ArchiveFile(c.Database, []string{c.FileID}, true); err != nil {
+		return fmt.Errorf("archiving file: %w", err)
+	}
+
+	fmt.Printf("File %s archived successfully.\n", c.FileID)
+	return nil
+}
+
+type FilesUnarchiveCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
+}
+
+func (c *FilesUnarchiveCmd) Run(client *api.Client) error {
+	if err := client.ArchiveFile(c.Database, []string{c.FileID}, false); err != nil {
+		return fmt.Errorf("unarchiving file: %w", err)
+	}
+
+	fmt.Printf("File %s unarchived successfully.\n", c.FileID)
 	return nil
 }
