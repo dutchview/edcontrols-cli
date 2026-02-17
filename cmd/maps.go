@@ -14,6 +14,7 @@ type MapsCmd struct {
 	List   MapsListCmd   `cmd:"" help:"List maps (drawings)"`
 	Get    MapsGetCmd    `cmd:"" help:"Get map details"`
 	Add    MapsAddCmd    `cmd:"" help:"Add a new map (upload and convert PDF/image)"`
+	Delete MapsDeleteCmd `cmd:"" help:"Delete a map"`
 	Groups MapGroupsCmd  `cmd:"" help:"Manage map groups"`
 }
 
@@ -466,5 +467,19 @@ func (c *MapsAddCmd) Run(client *api.Client) error {
 	fmt.Printf("Map '%s' queued for creation.\n", displayName)
 	fmt.Printf("File ID: %s\n", fullFile.CouchDbID)
 
+	return nil
+}
+
+type MapsDeleteCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	MapID    string `arg:"" help:"Map ID (full CouchDB ID)"`
+}
+
+func (c *MapsDeleteCmd) Run(client *api.Client) error {
+	if err := client.DeleteLibraryItems(c.Database, nil, []string{c.MapID}); err != nil {
+		return fmt.Errorf("deleting map: %w", err)
+	}
+
+	fmt.Printf("Map %s deleted successfully.\n", c.MapID)
 	return nil
 }

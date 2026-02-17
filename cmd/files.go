@@ -17,6 +17,7 @@ type FilesCmd struct {
 	Download  FilesDownloadCmd  `cmd:"" help:"Download a file"`
 	Archive   FilesArchiveCmd   `cmd:"" help:"Archive a file"`
 	Unarchive FilesUnarchiveCmd `cmd:"" help:"Unarchive a file"`
+	Delete    FilesDeleteCmd    `cmd:"" help:"Delete a file"`
 	ToMap     FilesToMapCmd     `cmd:"" help:"Convert a file to a map (tiled drawing)"`
 	Groups    FileGroupsCmd     `cmd:"" help:"Manage file groups"`
 }
@@ -594,6 +595,20 @@ func (c *FilesUnarchiveCmd) Run(client *api.Client) error {
 	}
 
 	fmt.Printf("File %s unarchived successfully.\n", c.FileID)
+	return nil
+}
+
+type FilesDeleteCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
+}
+
+func (c *FilesDeleteCmd) Run(client *api.Client) error {
+	if err := client.DeleteLibraryItems(c.Database, []string{c.FileID}, nil); err != nil {
+		return fmt.Errorf("deleting file: %w", err)
+	}
+
+	fmt.Printf("File %s deleted successfully.\n", c.FileID)
 	return nil
 }
 

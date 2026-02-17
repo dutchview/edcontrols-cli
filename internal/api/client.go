@@ -1525,6 +1525,43 @@ func (c *Client) CreateFile(opts CreateFileOptions) (*CreateFileResponse, error)
 	return &result, nil
 }
 
+// DeleteLibraryItems deletes files and/or maps from a project
+func (c *Client) DeleteLibraryItems(database string, fileIDs, mapIDs []string) error {
+	// Get project info for channelId
+	project, err := c.GetProject(database)
+	if err != nil {
+		return fmt.Errorf("getting project: %w", err)
+	}
+
+	now := time.Now().UTC()
+	channelID := fmt.Sprintf("%d%s", now.UnixMilli(), project.CouchDbID)
+	timeOnly := now.Format("15:04:05")
+
+	reqBody := map[string]interface{}{
+		"channelId":             channelID,
+		"mapList":               mapIDs,
+		"fileList":              fileIDs,
+		"time":                  timeOnly,
+		"isFileDeletionEnabled": true,
+		"database":              database,
+	}
+
+	if fileIDs == nil {
+		reqBody["fileList"] = []string{}
+	}
+	if mapIDs == nil {
+		reqBody["mapList"] = []string{}
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	_, err = c.doRequest("POST", "/api/v1/bulk/library", strings.NewReader(string(jsonBody)))
+	return err
+}
+
 // ConvertFileToMap converts a file to a map (tiled drawing)
 func (c *Client) ConvertFileToMap(database, fileID, versionID, fileName, groupName string) error {
 	email, err := c.Email()
