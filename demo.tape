@@ -9,10 +9,13 @@ Set Height 600
 Set Theme "Catppuccin Mocha"
 Set Padding 20
 
-# Title
-Type "# EdControls CLI Demo"
+# Install instructions
+Type "# Install via Homebrew:"
 Enter
-Sleep 1s
+Sleep 500ms
+Type "brew tap dutchview/tap && brew install ec"
+Enter
+Sleep 2s
 
 # Show version
 Type "ec --version"
@@ -40,7 +43,7 @@ Enter
 Sleep 3s
 
 # Get ticket details
-Type "ec tickets get 6D8A21"
+Type "ec tickets get 51A9A9"
 Enter
 Sleep 3s
 
@@ -53,8 +56,3 @@ Sleep 3s
 Type "ec templates list nl_ithelden_9c62eecc-b16b-459d-9e3c-fa76e5ab0cc2 -l 5"
 Enter
 Sleep 3s
-
-# Final message
-Type "# Install: brew tap dutchview/tap && brew install ec"
-Enter
-Sleep 2s
