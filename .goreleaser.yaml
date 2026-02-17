@@ -46,7 +46,7 @@ brews:
       owner: dutchview
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-      directory: Formula
+    directory: Formula
     homepage: "https://github.com/dutchview/edcontrols-cli"
     description: "Command-line interface for EdControls"
     license: "MIT"
