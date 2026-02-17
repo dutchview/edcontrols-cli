@@ -1525,6 +1525,58 @@ func (c *Client) CreateFile(opts CreateFileOptions) (*CreateFileResponse, error)
 	return &result, nil
 }
 
+// ConvertFileToMap converts a file to a map (tiled drawing)
+func (c *Client) ConvertFileToMap(database, fileID, versionID, fileName, groupName string) error {
+	email, err := c.Email()
+	if err != nil {
+		return fmt.Errorf("getting user email: %w", err)
+	}
+
+	// Get project info for channelId
+	project, err := c.GetProject(database)
+	if err != nil {
+		return fmt.Errorf("getting project: %w", err)
+	}
+
+	now := time.Now().UTC()
+	channelID := fmt.Sprintf("%d%s", now.UnixMilli(), project.CouchDbID)
+	timeOnly := now.Format("15:04:05")
+
+	reqBody := map[string]interface{}{
+		"sendStatus": map[string]string{
+			"channelId": channelID,
+			"time":      timeOnly,
+			"fileName":  fileName,
+		},
+		"mapId":        "",
+		"fileStackUrl": nil,
+		"headers": map[string]string{
+			"from":    email,
+			"to":      database + "@edcontrols.nl",
+			"subject": groupName,
+			"date":    now.Format("2006-01-02T15:04:05.000Z"),
+		},
+		"readyForTiler": true,
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v2/data/tiler/%s/%s/tileDocument?versionId=%s",
+		url.PathEscape(database),
+		url.PathEscape(fileID),
+		url.QueryEscape(versionID))
+
+	_, err = c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	return err
+}
+
 // ArchiveFile archives or unarchives files
 func (c *Client) ArchiveFile(database string, fileIDs []string, archive bool) error {
 	reqBody := map[string]interface{}{

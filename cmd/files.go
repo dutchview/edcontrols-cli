@@ -17,6 +17,7 @@ type FilesCmd struct {
 	Download  FilesDownloadCmd  `cmd:"" help:"Download a file"`
 	Archive   FilesArchiveCmd   `cmd:"" help:"Archive a file"`
 	Unarchive FilesUnarchiveCmd `cmd:"" help:"Unarchive a file"`
+	ToMap     FilesToMapCmd     `cmd:"" help:"Convert a file to a map (tiled drawing)"`
 	Groups    FileGroupsCmd     `cmd:"" help:"Manage file groups"`
 }
 
@@ -593,5 +594,51 @@ func (c *FilesUnarchiveCmd) Run(client *api.Client) error {
 	}
 
 	fmt.Printf("File %s unarchived successfully.\n", c.FileID)
+	return nil
+}
+
+type FilesToMapCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
+}
+
+func (c *FilesToMapCmd) Run(client *api.Client) error {
+	// Get file details to retrieve versionId, filename, and group
+	f, err := client.GetFile(c.Database, c.FileID)
+	if err != nil {
+		return fmt.Errorf("getting file details: %w", err)
+	}
+
+	if f.VersionID == "" {
+		return fmt.Errorf("file has no versionId, cannot convert to map")
+	}
+
+	// Get filename
+	fileName := f.FileName
+	if fileName == "" {
+		fileName = f.Name
+	}
+
+	// Get group name
+	groupID := f.GroupID
+	if groupID == "" {
+		groupID = f.FileGroupID
+	}
+
+	groupName := ""
+	if groupID != "" {
+		group, err := client.GetFileGroup(c.Database, groupID)
+		if err == nil && group.Name != "" {
+			groupName = group.Name
+		}
+	}
+
+	fmt.Printf("Converting %s to map...\n", fileName)
+
+	if err := client.ConvertFileToMap(c.Database, c.FileID, f.VersionID, fileName, groupName); err != nil {
+		return fmt.Errorf("converting file to map: %w", err)
+	}
+
+	fmt.Printf("File %s queued for conversion to map.\n", fileName)
 	return nil
 }
