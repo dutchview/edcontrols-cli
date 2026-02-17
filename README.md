@@ -669,7 +669,7 @@ ec files list nl_company_abc123 -j
 | `-g, --group-id=STRING` | Filter by file group ID |
 | `-s, --search=STRING` | Search by name |
 | `-t, --tag=STRING` | Filter by tag |
-| `-a, --archived` | Include archived files |
+| `-a, --archived` | Include archived files (shown with status "archived" or "deleted") |
 | `-l, --limit=50` | Maximum number of files to return |
 | `-p, --page=0` | Page number (0-based) |
 | `-o, --sort="created"` | Sort by field (created, modified, name) |
