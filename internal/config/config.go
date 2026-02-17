@@ -89,5 +89,5 @@ func PrintConfigHelp() {
 	fmt.Println(configHelp())
 	fmt.Println()
 	fmt.Println("Token format: UUID (36 characters)")
-	fmt.Println("Example: 35efc557-d3b6-41da-bf7d-0bc82a285967")
+	fmt.Println("Example: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
 }

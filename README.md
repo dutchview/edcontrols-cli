@@ -32,7 +32,7 @@ The CLI requires an access token to authenticate with the EdControls API. The to
 ### Example .env file
 
 ```bash
-EDCONTROLS_ACCESS_TOKEN=35efc557-d3b6-41da-bf7d-0bc82a285967
+EDCONTROLS_ACCESS_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 ### Getting Your Token
