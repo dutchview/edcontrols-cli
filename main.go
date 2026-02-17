@@ -23,7 +23,7 @@ var CLI struct {
 	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects (list, get)"`
 	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets (list, get, update, assign, open, close, archive, unarchive, delete)"`
 	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get)"`
-	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create-audit)"`
+	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create, update, groups)"`
 	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps (list, get, add, delete, tags)"`
 	Files     cmd.FilesCmd     `cmd:"" help:"Manage files (list, get, add, download, archive, delete, tags, to-map)"`
 	Configure ConfigureCmd     `cmd:"" help:"Show configuration help"`
