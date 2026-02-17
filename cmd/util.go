@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -60,4 +61,34 @@ func isFieldSet(v interface{}) bool {
 	default:
 		return true
 	}
+}
+
+// sanitizeHTML removes dangerous HTML elements and attributes to prevent XSS.
+// Allows simple formatting tags like <p>, <b>, <i>, <br>, <ul>, <li>, etc.
+func sanitizeHTML(html string) string {
+	// Remove script tags and their content
+	scriptRe := regexp.MustCompile(`(?i)<script[^>]*>[\s\S]*?</script>`)
+	html = scriptRe.ReplaceAllString(html, "")
+
+	// Remove standalone script tags
+	scriptTagRe := regexp.MustCompile(`(?i)</?script[^>]*>`)
+	html = scriptTagRe.ReplaceAllString(html, "")
+
+	// Remove event handlers (onclick, onload, onerror, etc.)
+	eventRe := regexp.MustCompile(`(?i)\s+on\w+\s*=\s*["'][^"']*["']`)
+	html = eventRe.ReplaceAllString(html, "")
+
+	// Remove javascript: URLs
+	jsUrlRe := regexp.MustCompile(`(?i)href\s*=\s*["']javascript:[^"']*["']`)
+	html = jsUrlRe.ReplaceAllString(html, `href=""`)
+
+	// Remove style tags and their content
+	styleRe := regexp.MustCompile(`(?i)<style[^>]*>[\s\S]*?</style>`)
+	html = styleRe.ReplaceAllString(html, "")
+
+	// Remove iframe, embed, object tags
+	dangerousTagsRe := regexp.MustCompile(`(?i)<(iframe|embed|object|form|input|button)[^>]*>`)
+	html = dangerousTagsRe.ReplaceAllString(html, "")
+
+	return html
 }

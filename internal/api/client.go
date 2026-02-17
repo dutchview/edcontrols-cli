@@ -603,6 +603,14 @@ type UpdateTicketOptions struct {
 	Tags        []string
 }
 
+// UpdateTicketFieldsOptions contains options for updating ticket fields with operation tracking
+type UpdateTicketFieldsOptions struct {
+	Title       *string
+	Description *string
+	DueDate     *string
+	ClearDue    bool
+}
+
 // UpdateTicket updates a ticket via the securedata endpoint
 func (c *Client) UpdateTicket(database, ticketID string, opts UpdateTicketOptions) error {
 	// First, get the current document
@@ -1590,6 +1598,233 @@ func (c *Client) UpdateDocumentTags(database, docID string, tags []string) error
 	}
 
 	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(docID))
+	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
+	return err
+}
+
+// UpdateTicketDueDate updates the due date on a ticket
+// If dueDate is empty, the due date is cleared
+func (c *Client) UpdateTicketDueDate(database, ticketID string, dueDate string) error {
+	// Get the current document
+	doc, err := c.GetDocument(database, ticketID)
+	if err != nil {
+		return fmt.Errorf("getting ticket: %w", err)
+	}
+
+	// Get user email for operation record
+	email, err := c.Email()
+	if err != nil {
+		return fmt.Errorf("getting user email: %w", err)
+	}
+
+	// Get old due date for operation record
+	oldDueDate := ""
+	if plan, ok := doc["plan"].(map[string]interface{}); ok {
+		if dd, ok := plan["dueDate"].(string); ok {
+			oldDueDate = dd
+		}
+	}
+
+	// Update plan.dueDate
+	if plan, ok := doc["plan"].(map[string]interface{}); ok {
+		if dueDate == "" {
+			delete(plan, "dueDate")
+		} else {
+			plan["dueDate"] = dueDate
+		}
+	} else if dueDate != "" {
+		doc["plan"] = map[string]interface{}{"dueDate": dueDate}
+	}
+
+	// Update dates.lastModifiedDate
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	if dates, ok := doc["dates"].(map[string]interface{}); ok {
+		dates["lastModifiedDate"] = now
+	}
+
+	// Update content.lastmodifier if it exists
+	if content, ok := doc["content"].(map[string]interface{}); ok {
+		content["lastmodifier"] = map[string]interface{}{
+			"type":  "IB.EdBundle.Document.Person",
+			"email": email,
+		}
+	}
+
+	// Build operation record
+	actionType := "updated"
+	summary := "user updated following fields"
+	operation := map[string]interface{}{
+		"author":            email,
+		"changedProperties": []string{"duedate"},
+		"oldValues":         []interface{}{oldDueDate},
+		"newValues":         []interface{}{dueDate},
+		"time":              now,
+		"summary":           summary,
+		"actionType":        actionType,
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+	}
+
+	// Append to operations array
+	if ops, ok := doc["operation"].([]interface{}); ok {
+		doc["operation"] = append(ops, operation)
+	} else {
+		doc["operation"] = []interface{}{operation}
+	}
+
+	// PUT the updated document
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshaling document: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(ticketID))
+	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
+	return err
+}
+
+// GetTicketDueDate returns the current due date of a ticket
+func (c *Client) GetTicketDueDate(database, ticketID string) (string, error) {
+	doc, err := c.GetDocument(database, ticketID)
+	if err != nil {
+		return "", fmt.Errorf("getting ticket: %w", err)
+	}
+
+	if plan, ok := doc["plan"].(map[string]interface{}); ok {
+		if dueDate, ok := plan["dueDate"].(string); ok {
+			return dueDate, nil
+		}
+	}
+	return "", nil
+}
+
+// UpdateTicketFields updates multiple ticket fields with proper operation tracking
+func (c *Client) UpdateTicketFields(database, ticketID string, opts UpdateTicketFieldsOptions) error {
+	// Get the current document
+	doc, err := c.GetDocument(database, ticketID)
+	if err != nil {
+		return fmt.Errorf("getting ticket: %w", err)
+	}
+
+	// Get user email for operation record
+	email, err := c.Email()
+	if err != nil {
+		return fmt.Errorf("getting user email: %w", err)
+	}
+
+	// Track changes for operation record
+	var changedProps []string
+	var oldValues []interface{}
+	var newValues []interface{}
+
+	// Handle title update
+	if opts.Title != nil {
+		oldTitle := ""
+		if content, ok := doc["content"].(map[string]interface{}); ok {
+			if t, ok := content["title"].(string); ok {
+				oldTitle = t
+			}
+			content["title"] = *opts.Title
+		}
+		changedProps = append(changedProps, "title")
+		oldValues = append(oldValues, oldTitle)
+		newValues = append(newValues, *opts.Title)
+	}
+
+	// Handle description update
+	if opts.Description != nil {
+		oldDesc := ""
+		if content, ok := doc["content"].(map[string]interface{}); ok {
+			if d, ok := content["body"].(string); ok {
+				oldDesc = d
+			}
+			content["body"] = *opts.Description
+		}
+		changedProps = append(changedProps, "description")
+		oldValues = append(oldValues, oldDesc)
+		newValues = append(newValues, *opts.Description)
+	}
+
+	// Handle due date update
+	if opts.DueDate != nil || opts.ClearDue {
+		oldDueDate := ""
+		if plan, ok := doc["plan"].(map[string]interface{}); ok {
+			if dd, ok := plan["dueDate"].(string); ok {
+				oldDueDate = dd
+			}
+		}
+
+		newDueDate := ""
+		if opts.DueDate != nil {
+			newDueDate = *opts.DueDate
+		}
+
+		// Update plan.dueDate
+		if plan, ok := doc["plan"].(map[string]interface{}); ok {
+			if opts.ClearDue {
+				delete(plan, "dueDate")
+			} else if opts.DueDate != nil {
+				plan["dueDate"] = *opts.DueDate
+			}
+		} else if opts.DueDate != nil {
+			doc["plan"] = map[string]interface{}{"dueDate": *opts.DueDate}
+		}
+
+		changedProps = append(changedProps, "duedate")
+		oldValues = append(oldValues, oldDueDate)
+		newValues = append(newValues, newDueDate)
+	}
+
+	// If no changes, return early
+	if len(changedProps) == 0 {
+		return nil
+	}
+
+	// Update dates.lastModifiedDate
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	if dates, ok := doc["dates"].(map[string]interface{}); ok {
+		dates["lastModifiedDate"] = now
+	}
+
+	// Update content.lastmodifier
+	if content, ok := doc["content"].(map[string]interface{}); ok {
+		content["lastmodifier"] = map[string]interface{}{
+			"type":  "IB.EdBundle.Document.Person",
+			"email": email,
+		}
+	}
+
+	// Build operation record
+	operation := map[string]interface{}{
+		"author":            email,
+		"changedProperties": changedProps,
+		"oldValues":         oldValues,
+		"newValues":         newValues,
+		"time":              now,
+		"summary":           "user updated following fields",
+		"actionType":        "updated",
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+	}
+
+	// Append to operations array
+	if ops, ok := doc["operation"].([]interface{}); ok {
+		doc["operation"] = append(ops, operation)
+	} else {
+		doc["operation"] = []interface{}{operation}
+	}
+
+	// PUT the updated document
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshaling document: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(ticketID))
 	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
 	return err
 }

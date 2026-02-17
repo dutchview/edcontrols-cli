@@ -12,6 +12,7 @@ import (
 type TicketsCmd struct {
 	List   TicketsListCmd   `cmd:"" help:"List tickets"`
 	Get    TicketsGetCmd    `cmd:"" help:"Get ticket details"`
+	Update TicketsUpdateCmd `cmd:"" help:"Update ticket fields (title, description, due date)"`
 	Assign TicketsAssignCmd `cmd:"" help:"Assign a ticket to someone"`
 	Open   TicketsOpenCmd   `cmd:"" help:"Open a ticket (set status to Open)"`
 	Close  TicketsCloseCmd  `cmd:"" help:"Close a ticket (set status to Done)"`
@@ -412,4 +413,87 @@ func findTicketByHumanID(client *api.Client, searchID string, limitToDatabase st
 	}
 
 	return "", "", fmt.Errorf("ticket with ID %s not found", searchID)
+}
+
+type TicketsUpdateCmd struct {
+	Database    string `arg:"" help:"Project database name"`
+	TicketID    string `arg:"" help:"Ticket ID"`
+	Title       string `short:"t" help:"New title for the ticket"`
+	Description string `short:"d" help:"New description for the ticket"`
+	DueDate     string `help:"Due date (ISO 8601 format, e.g., 2026-03-15T12:00:00.000Z)"`
+	ClearDue    bool   `help:"Clear the due date"`
+}
+
+func (c *TicketsUpdateCmd) Run(client *api.Client) error {
+	// Build update options
+	opts := api.UpdateTicketFieldsOptions{
+		ClearDue: c.ClearDue,
+	}
+
+	if c.Title != "" {
+		opts.Title = &c.Title
+	}
+	if c.Description != "" {
+		// Sanitize HTML to prevent XSS attacks
+		sanitized := sanitizeHTML(c.Description)
+		opts.Description = &sanitized
+	}
+	if c.DueDate != "" {
+		opts.DueDate = &c.DueDate
+	}
+
+	// If no updates specified, show current values
+	if opts.Title == nil && opts.Description == nil && opts.DueDate == nil && !opts.ClearDue {
+		ticket, err := client.GetTicket(c.Database, c.TicketID)
+		if err != nil {
+			return fmt.Errorf("getting ticket: %w", err)
+		}
+
+		title := "-"
+		description := "-"
+		dueDate := "-"
+
+		if ticket.Content != nil && ticket.Content.Title != "" {
+			title = ticket.Content.Title
+		}
+		if ticket.Content != nil && ticket.Content.Body != "" {
+			description = ticket.Content.Body
+		}
+		if ticket.Dates != nil && ticket.Dates.DueDate != "" {
+			dueDate = ticket.Dates.DueDate
+		} else {
+			// Check plan.dueDate via raw document
+			dd, _ := client.GetTicketDueDate(c.Database, c.TicketID)
+			if dd != "" {
+				dueDate = dd
+			}
+		}
+
+		fmt.Printf("Title: %s\n", title)
+		fmt.Printf("Description: %s\n", description)
+		fmt.Printf("Due date: %s\n", dueDate)
+		return nil
+	}
+
+	if err := client.UpdateTicketFields(c.Database, c.TicketID, opts); err != nil {
+		return fmt.Errorf("updating ticket: %w", err)
+	}
+
+	// Report what was updated
+	var updates []string
+	if opts.Title != nil {
+		updates = append(updates, fmt.Sprintf("title=%q", *opts.Title))
+	}
+	if opts.Description != nil {
+		updates = append(updates, fmt.Sprintf("description=%q", truncate(*opts.Description, 50)))
+	}
+	if opts.DueDate != nil {
+		updates = append(updates, fmt.Sprintf("due-date=%s", *opts.DueDate))
+	}
+	if opts.ClearDue {
+		updates = append(updates, "due-date cleared")
+	}
+
+	fmt.Printf("Ticket %s updated: %s\n", c.TicketID, strings.Join(updates, ", "))
+	return nil
 }
