@@ -2218,3 +2218,60 @@ func (c *Client) DeleteTickets(database string, ticketIDs []string) error {
 	_, err = c.doRequest("POST", "/api/v1/bulk/ticket", strings.NewReader(string(jsonBody)))
 	return err
 }
+
+// CreateTemplateGroup creates a new audit template group
+func (c *Client) CreateTemplateGroup(database, name string) (string, error) {
+	// Get user email
+	email, err := c.Email()
+	if err != nil {
+		return "", fmt.Errorf("getting user email: %w", err)
+	}
+
+	// Get project to find the CouchDB ID
+	project, err := c.GetProject(database)
+	if err != nil {
+		return "", fmt.Errorf("getting project: %w", err)
+	}
+
+	now := time.Now().UTC()
+	timestamp := now.Format("2006-01-02T15:04:05.000Z")
+
+	doc := map[string]interface{}{
+		"archived": nil,
+		"content": map[string]string{
+			"author":       email,
+			"lastmodifier": email,
+		},
+		"dates": map[string]string{
+			"creationDate":     timestamp,
+			"lastModifiedDate": timestamp,
+		},
+		"name":     name,
+		"project":  project.CouchDbID,
+		"timeline": []interface{}{},
+		"type":     "IB.EdBundle.Document.TemplateGroup",
+	}
+
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return "", fmt.Errorf("marshaling document: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s", url.PathEscape(database))
+
+	respBody, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return "", err
+	}
+
+	// Parse response to get the new document ID
+	var resp struct {
+		ID  string `json:"id"`
+		Rev string `json:"rev"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return "", fmt.Errorf("parsing response: %w", err)
+	}
+
+	return resp.ID, nil
+}

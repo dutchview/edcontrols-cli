@@ -16,7 +16,8 @@ type TemplatesCmd struct {
 }
 
 type TemplateGroupsCmd struct {
-	List TemplateGroupsListCmd `cmd:"" help:"List template groups"`
+	List   TemplateGroupsListCmd   `cmd:"" help:"List template groups"`
+	Create TemplateGroupsCreateCmd `cmd:"" help:"Create a new template group"`
 }
 
 type TemplateGroupsListCmd struct {
@@ -69,6 +70,30 @@ func (c *TemplateGroupsListCmd) Run(client *api.Client) error {
 	w.Flush()
 	fmt.Printf("\nTotal: %d template groups\n", total)
 
+	return nil
+}
+
+type TemplateGroupsCreateCmd struct {
+	Database string `arg:"" help:"Project database name"`
+	Name     string `arg:"" help:"Name for the new template group"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *TemplateGroupsCreateCmd) Run(client *api.Client) error {
+	groupID, err := client.CreateTemplateGroup(c.Database, c.Name)
+	if err != nil {
+		return fmt.Errorf("creating template group: %w", err)
+	}
+
+	if c.JSON {
+		return printJSON(map[string]string{
+			"id":   groupID,
+			"name": c.Name,
+		})
+	}
+
+	fmt.Printf("Template group '%s' created.\n", c.Name)
+	fmt.Printf("ID: %s\n", groupID)
 	return nil
 }
 
