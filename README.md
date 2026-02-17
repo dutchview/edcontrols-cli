@@ -242,8 +242,8 @@ ec tickets get CC455B
 # Get ticket by full CouchDB ID
 ec tickets get b554cc123456789abcdef
 
-# Specify project database for faster lookup
-ec tickets get CC455B -d nl_company_abc123
+# Specify project ID for faster lookup
+ec tickets get CC455B -p nl_company_abc123
 
 # Output as JSON
 ec tickets get CC455B -j
@@ -253,7 +253,7 @@ ec tickets get CC455B -j
 
 | Flag | Description |
 |------|-------------|
-| `-d, --database=STRING` | Project database name (optional, will search if not provided) |
+| `-p, --project=STRING` | Project ID (optional, will search if not provided) |
 | `-j, --json` | Output as JSON |
 
 #### tickets update
@@ -442,8 +442,8 @@ ec audits get 708739
 # Get audit by full CouchDB ID
 ec audits get d67c1aba0b017a1c9372e726c6512a1f
 
-# Specify project database for faster lookup
-ec audits get 708739 -d nl_company_abc123
+# Specify project ID for faster lookup
+ec audits get 708739 -p nl_company_abc123
 
 # Output as JSON (includes full audit data with questions/answers)
 ec audits get 708739 -j
@@ -453,7 +453,7 @@ ec audits get 708739 -j
 
 | Flag | Description |
 |------|-------------|
-| `-d, --database=STRING` | Project database name (optional, will search if not provided) |
+| `-p, --project=STRING` | Project ID (optional, will search if not provided) |
 | `-j, --json` | Output as JSON |
 
 #### audits create
@@ -732,8 +732,8 @@ Get details for a specific map.
 # Get map by ID (searches across all projects)
 ec maps get abc123def456789
 
-# Specify project database for faster lookup
-ec maps get abc123def456789 -d nl_company_abc123
+# Specify project ID for faster lookup
+ec maps get abc123def456789 -p nl_company_abc123
 
 # Output as JSON
 ec maps get abc123def456789 -j
@@ -743,7 +743,7 @@ ec maps get abc123def456789 -j
 
 | Flag | Description |
 |------|-------------|
-| `-d, --database=STRING` | Project database name (optional, will search if not provided) |
+| `-p, --project=STRING` | Project ID (optional, will search if not provided) |
 | `-j, --json` | Output as JSON |
 
 #### maps add
@@ -888,8 +888,8 @@ Get details for a specific file.
 # Get file by ID (searches across all projects)
 ec files get abc123def456789
 
-# Specify project database for faster lookup
-ec files get abc123def456789 -d nl_company_abc123
+# Specify project ID for faster lookup
+ec files get abc123def456789 -p nl_company_abc123
 
 # Output as JSON
 ec files get abc123def456789 -j
@@ -899,7 +899,7 @@ ec files get abc123def456789 -j
 
 | Flag | Description |
 |------|-------------|
-| `-d, --database=STRING` | Project database name (optional, will search if not provided) |
+| `-p, --project=STRING` | Project ID (optional, will search if not provided) |
 | `-j, --json` | Output as JSON |
 
 #### files add
@@ -936,8 +936,8 @@ Download a file.
 # Download file (uses original filename)
 ec files download file-id-here
 
-# Download with specific database
-ec files download file-id-here -d nl_company_abc123
+# Download with specific project ID
+ec files download file-id-here -p nl_company_abc123
 
 # Download to custom path
 ec files download file-id-here -o /path/to/save/file.pdf
@@ -947,7 +947,7 @@ ec files download file-id-here -o /path/to/save/file.pdf
 
 | Flag | Description |
 |------|-------------|
-| `-d, --database=STRING` | Project database name (optional, will search if not provided) |
+| `-p, --project=STRING` | Project ID (optional, will search if not provided) |
 | `-o, --output=STRING` | Output file path (defaults to original filename) |
 
 #### files archive / unarchive
@@ -1074,7 +1074,7 @@ ec projects list -j > projects.json
 Some commands support searching across all accessible projects:
 
 ```bash
-# Search tickets across all projects (omit database argument)
+# Search tickets across all projects (omit project ID argument)
 ec tickets list
 
 # Search audits across all projects

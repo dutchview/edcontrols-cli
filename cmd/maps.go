@@ -24,7 +24,7 @@ type MapGroupsCmd struct {
 }
 
 type MapGroupsListCmd struct {
-	Database string `arg:"" help:"Project database name (required)"`
+	Database string `arg:"" name:"project-id" help:"Project ID (required)"`
 	Search   string `short:"s" help:"Search by name"`
 	Archived bool   `short:"a" help:"Include archived groups"`
 	Limit    int    `short:"l" default:"50" help:"Maximum number of groups to return"`
@@ -77,7 +77,7 @@ func (c *MapGroupsListCmd) Run(client *api.Client) error {
 }
 
 type MapsListCmd struct {
-	Database string `arg:"" help:"Project database name (required)"`
+	Database string `arg:"" name:"project-id" help:"Project ID (required)"`
 	GroupID  string `short:"g" help:"Filter by map group ID"`
 	Search   string `short:"s" help:"Search by name"`
 	Tag      string `short:"t" help:"Filter by tag"`
@@ -204,7 +204,7 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 
 type MapsGetCmd struct {
 	MapID    string `arg:"" help:"Map ID (full CouchDB ID)"`
-	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
+	Database string `short:"p" name:"project" help:"Project ID (optional, will search if not provided)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 
@@ -316,7 +316,7 @@ func findMapByID(client *api.Client, mapID string) (string, error) {
 }
 
 type MapsAddCmd struct {
-	Database    string   `arg:"" help:"Project database name"`
+	Database    string   `arg:"" name:"project-id" help:"Project ID"`
 	FileGroupID string   `arg:"" help:"File group ID (where the file will be stored)"`
 	File        string   `arg:"" help:"Path to PDF or image file to upload" type:"existingfile"`
 	Name        string   `short:"n" help:"Map name (defaults to filename)"`
@@ -472,7 +472,7 @@ func (c *MapsAddCmd) Run(client *api.Client) error {
 }
 
 type MapsDeleteCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	MapID    string `arg:"" help:"Map ID (full CouchDB ID)"`
 }
 
@@ -486,7 +486,7 @@ func (c *MapsDeleteCmd) Run(client *api.Client) error {
 }
 
 type MapsTagsCmd struct {
-	Database string   `arg:"" help:"Project database name"`
+	Database string   `arg:"" name:"project-id" help:"Project ID"`
 	MapID    string   `arg:"" help:"Map ID (full CouchDB ID)"`
 	Tags     []string `short:"t" help:"Tags to set (replaces existing tags)"`
 	Clear    bool     `help:"Clear all tags from the map"`

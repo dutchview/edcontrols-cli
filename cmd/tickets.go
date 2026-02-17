@@ -22,7 +22,7 @@ type TicketsCmd struct {
 }
 
 type TicketsListCmd struct {
-	Database    string `arg:"" optional:"" help:"Project database name (omit to search all active projects)"`
+	Database    string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
 	Status      string `short:"s" help:"Filter by status (Open, In Progress, Done)"`
 	Search      string `help:"Search by title"`
 	Responsible string `short:"r" help:"Filter by responsible person email"`
@@ -199,7 +199,7 @@ func (c *TicketsListCmd) Run(client *api.Client) error {
 
 type TicketsGetCmd struct {
 	TicketID string `arg:"" help:"Ticket ID (human ID like 'CC455B' or full CouchDB ID)"`
-	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
+	Database string `short:"p" name:"project" help:"Project ID (optional, will search if not provided)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 
@@ -309,7 +309,7 @@ func (c *TicketsGetCmd) Run(client *api.Client) error {
 }
 
 type TicketsAssignCmd struct {
-	Database    string `arg:"" help:"Project database name"`
+	Database    string `arg:"" name:"project-id" help:"Project ID"`
 	TicketID    string `arg:"" help:"Ticket ID"`
 	Responsible string `arg:"" help:"Email of the person to assign"`
 }
@@ -328,7 +328,7 @@ func (c *TicketsAssignCmd) Run(client *api.Client) error {
 }
 
 type TicketsOpenCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	TicketID string `arg:"" help:"Ticket ID"`
 }
 
@@ -347,7 +347,7 @@ func (c *TicketsOpenCmd) Run(client *api.Client) error {
 }
 
 type TicketsCloseCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	TicketID string `arg:"" help:"Ticket ID"`
 }
 
@@ -419,7 +419,7 @@ func findTicketByHumanID(client *api.Client, searchID string, limitToDatabase st
 }
 
 type TicketsUpdateCmd struct {
-	Database         string `arg:"" help:"Project database name"`
+	Database         string `arg:"" name:"project-id" help:"Project ID"`
 	TicketID         string `arg:"" help:"Ticket ID"`
 	Title            string `short:"t" help:"New title for the ticket"`
 	Description      string `short:"d" help:"New description for the ticket"`
@@ -539,7 +539,7 @@ func (c *TicketsUpdateCmd) Run(client *api.Client) error {
 }
 
 type TicketsArchiveCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	TicketID string `arg:"" help:"Ticket ID"`
 }
 
@@ -552,7 +552,7 @@ func (c *TicketsArchiveCmd) Run(client *api.Client) error {
 }
 
 type TicketsUnarchiveCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	TicketID string `arg:"" help:"Ticket ID"`
 }
 
@@ -565,7 +565,7 @@ func (c *TicketsUnarchiveCmd) Run(client *api.Client) error {
 }
 
 type TicketsDeleteCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	TicketID string `arg:"" help:"Ticket ID"`
 }
 

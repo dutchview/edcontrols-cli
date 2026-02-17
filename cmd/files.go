@@ -28,7 +28,7 @@ type FileGroupsCmd struct {
 }
 
 type FileGroupsListCmd struct {
-	Database string `arg:"" help:"Project database name (required)"`
+	Database string `arg:"" name:"project-id" help:"Project ID (required)"`
 	Search   string `short:"s" help:"Search by name"`
 	Archived bool   `short:"a" help:"Include archived groups"`
 	Limit    int    `short:"l" default:"50" help:"Maximum number of groups to return"`
@@ -81,7 +81,7 @@ func (c *FileGroupsListCmd) Run(client *api.Client) error {
 }
 
 type FilesListCmd struct {
-	Database string `arg:"" help:"Project database name (required)"`
+	Database string `arg:"" name:"project-id" help:"Project ID (required)"`
 	GroupID  string `short:"g" help:"Filter by file group ID"`
 	Search   string `short:"s" help:"Search by name"`
 	Tag      string `short:"t" help:"Filter by tag"`
@@ -220,7 +220,7 @@ func (c *FilesListCmd) Run(client *api.Client) error {
 
 type FilesGetCmd struct {
 	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
-	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
+	Database string `short:"p" name:"project" help:"Project ID (optional, will search if not provided)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 
@@ -392,7 +392,7 @@ func formatFileSize(bytes int64) string {
 }
 
 type FilesAddCmd struct {
-	Database string   `arg:"" help:"Project database name"`
+	Database string   `arg:"" name:"project-id" help:"Project ID"`
 	GroupID  string   `arg:"" help:"File group ID"`
 	File     string   `arg:"" help:"Path to file to upload" type:"existingfile"`
 	Name     string   `short:"n" help:"File name (defaults to filename)"`
@@ -511,7 +511,7 @@ func getContentType(filename string) string {
 
 type FilesDownloadCmd struct {
 	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
-	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
+	Database string `short:"p" name:"project" help:"Project ID (optional, will search if not provided)"`
 	Output   string `short:"o" help:"Output file path (defaults to original filename)"`
 }
 
@@ -572,7 +572,7 @@ func (c *FilesDownloadCmd) Run(client *api.Client) error {
 }
 
 type FilesArchiveCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
 }
 
@@ -586,7 +586,7 @@ func (c *FilesArchiveCmd) Run(client *api.Client) error {
 }
 
 type FilesUnarchiveCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
 }
 
@@ -600,7 +600,7 @@ func (c *FilesUnarchiveCmd) Run(client *api.Client) error {
 }
 
 type FilesDeleteCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
 }
 
@@ -614,7 +614,7 @@ func (c *FilesDeleteCmd) Run(client *api.Client) error {
 }
 
 type FilesToMapCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
 }
 
@@ -674,7 +674,7 @@ func isValidMapFileType(filename string) bool {
 }
 
 type FilesTagsCmd struct {
-	Database string   `arg:"" help:"Project database name"`
+	Database string   `arg:"" name:"project-id" help:"Project ID"`
 	FileID   string   `arg:"" help:"File ID (full CouchDB ID)"`
 	Tags     []string `short:"t" help:"Tags to set (replaces existing tags)"`
 	Clear    bool     `help:"Clear all tags from the file"`

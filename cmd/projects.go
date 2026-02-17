@@ -95,7 +95,7 @@ func (c *ProjectsListCmd) Run(client *api.Client) error {
 }
 
 type ProjectsGetCmd struct {
-	Database string `arg:"" help:"Project database name (projectId)"`
+	Database string `arg:"" name:"project-id" help:"Project ID (projectId)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 

@@ -16,7 +16,7 @@ type AuditsCmd struct {
 }
 
 type AuditsListCmd struct {
-	Database    string `arg:"" optional:"" help:"Project database name (omit to search all active projects)"`
+	Database    string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
 	Status      string `short:"s" help:"Filter by status (comma-separated)"`
 	Template    string `short:"t" help:"Filter by template ID"`
 	Search      string `help:"Search by title"`
@@ -214,7 +214,7 @@ func (c *AuditsListCmd) Run(client *api.Client) error {
 
 type AuditsGetCmd struct {
 	AuditID  string `arg:"" help:"Audit ID (human ID like '708739' or full CouchDB ID)"`
-	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
+	Database string `short:"p" name:"project" help:"Project ID (optional, will search if not provided)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 
@@ -420,7 +420,7 @@ func findAuditByHumanID(client *api.Client, searchID string, limitToDatabase str
 }
 
 type AuditsCreateCmd struct {
-	Database    string   `arg:"" help:"Project database name"`
+	Database    string   `arg:"" name:"project-id" help:"Project ID"`
 	TemplateID  string   `arg:"" help:"Audit template ID to use"`
 	Name        string   `short:"n" help:"Audit name (optional, defaults to template name)"`
 	Responsible string   `short:"r" help:"Responsible person email"`

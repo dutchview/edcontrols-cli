@@ -24,7 +24,7 @@ type TemplateGroupsCmd struct {
 }
 
 type TemplateGroupsListCmd struct {
-	Database string `arg:"" help:"Project database name (required)"`
+	Database string `arg:"" name:"project-id" help:"Project ID (required)"`
 	Search   string `short:"s" help:"Search by name"`
 	Archived bool   `short:"a" help:"Include archived groups"`
 	Limit    int    `short:"l" default:"50" help:"Maximum number of groups to return"`
@@ -77,7 +77,7 @@ func (c *TemplateGroupsListCmd) Run(client *api.Client) error {
 }
 
 type TemplateGroupsCreateCmd struct {
-	Database string `arg:"" help:"Project database name"`
+	Database string `arg:"" name:"project-id" help:"Project ID"`
 	Name     string `arg:"" help:"Name for the new template group"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
@@ -101,7 +101,7 @@ func (c *TemplateGroupsCreateCmd) Run(client *api.Client) error {
 }
 
 type TemplatesListCmd struct {
-	Database  string `arg:"" help:"Project database name (required)"`
+	Database  string `arg:"" help:"Project ID (required)"`
 	Search    string `short:"s" help:"Search by name"`
 	GroupID   string `short:"g" help:"Filter by group ID"`
 	Published bool   `short:"p" help:"Only show published templates"`
@@ -173,7 +173,7 @@ func (c *TemplatesListCmd) Run(client *api.Client) error {
 }
 
 type TemplatesGetCmd struct {
-	Database   string `arg:"" help:"Project database name"`
+	Database   string `arg:"" name:"project-id" help:"Project ID"`
 	TemplateID string `arg:"" help:"Template ID"`
 	JSON       bool   `short:"j" help:"Output as JSON"`
 }
@@ -219,7 +219,7 @@ func (c *TemplatesGetCmd) Run(client *api.Client) error {
 }
 
 type TemplatesCreateCmd struct {
-	Database string   `arg:"" help:"Project database name"`
+	Database string   `arg:"" name:"project-id" help:"Project ID"`
 	GroupID  string   `arg:"" help:"Template group ID"`
 	Name     string   `arg:"" help:"Template name"`
 	Tags     []string `short:"t" help:"Tags to add (can be specified multiple times)"`
@@ -253,7 +253,7 @@ func (c *TemplatesCreateCmd) Run(client *api.Client) error {
 }
 
 type TemplatesUpdateCmd struct {
-	Database    string   `arg:"" help:"Project database name"`
+	Database    string   `arg:"" name:"project-id" help:"Project ID"`
 	TemplateID  string   `arg:"" help:"Template ID"`
 	Name        string   `short:"n" help:"New template name"`
 	Description string   `short:"d" help:"New description"`
@@ -286,7 +286,7 @@ func (c *TemplatesUpdateCmd) Run(client *api.Client) error {
 }
 
 type TemplatesPublishCmd struct {
-	Database   string `arg:"" help:"Project database name"`
+	Database   string `arg:"" name:"project-id" help:"Project ID"`
 	TemplateID string `arg:"" help:"Template ID"`
 }
 
@@ -299,7 +299,7 @@ func (c *TemplatesPublishCmd) Run(client *api.Client) error {
 }
 
 type TemplatesUnpublishCmd struct {
-	Database   string `arg:"" help:"Project database name"`
+	Database   string `arg:"" name:"project-id" help:"Project ID"`
 	TemplateID string `arg:"" help:"Template ID"`
 }
 
