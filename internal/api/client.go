@@ -1525,6 +1525,75 @@ func (c *Client) CreateFile(opts CreateFileOptions) (*CreateFileResponse, error)
 	return &result, nil
 }
 
+// UpdateDocumentTags updates the tags on a document (file or map)
+func (c *Client) UpdateDocumentTags(database, docID string, tags []string) error {
+	// Get the current document
+	doc, err := c.GetDocument(database, docID)
+	if err != nil {
+		return fmt.Errorf("getting document: %w", err)
+	}
+
+	// Get user email for operation record
+	email, err := c.Email()
+	if err != nil {
+		return fmt.Errorf("getting user email: %w", err)
+	}
+
+	// Get old tags for operation record
+	var oldTags []string
+	if existingTags, ok := doc["tags"].([]interface{}); ok {
+		for _, t := range existingTags {
+			if s, ok := t.(string); ok {
+				oldTags = append(oldTags, s)
+			}
+		}
+	}
+
+	// Update tags
+	doc["tags"] = tags
+
+	// Update dates.lastModifiedDate
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	if dates, ok := doc["dates"].(map[string]interface{}); ok {
+		dates["lastModifiedDate"] = now
+	}
+
+	// Update content.lastModifier if it exists
+	if content, ok := doc["content"].(map[string]interface{}); ok {
+		content["lastModifier"] = email
+	}
+
+	// Build operation record
+	operation := map[string]interface{}{
+		"author":            email,
+		"changedProperties": []string{"tags"},
+		"oldValues":         []interface{}{oldTags},
+		"newValues":         []interface{}{tags},
+		"time":              now,
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+	}
+
+	// Append to operations array
+	if ops, ok := doc["operation"].([]interface{}); ok {
+		doc["operation"] = append(ops, operation)
+	} else {
+		doc["operation"] = []interface{}{operation}
+	}
+
+	// PUT the updated document
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshaling document: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(docID))
+	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
+	return err
+}
+
 // DeleteLibraryItems deletes files and/or maps from a project
 func (c *Client) DeleteLibraryItems(database string, fileIDs, mapIDs []string) error {
 	// Get project info for channelId

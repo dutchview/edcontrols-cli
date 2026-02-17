@@ -18,6 +18,7 @@ type FilesCmd struct {
 	Archive   FilesArchiveCmd   `cmd:"" help:"Archive a file"`
 	Unarchive FilesUnarchiveCmd `cmd:"" help:"Unarchive a file"`
 	Delete    FilesDeleteCmd    `cmd:"" help:"Delete a file"`
+	Tags      FilesTagsCmd      `cmd:"" help:"Update tags on a file"`
 	ToMap     FilesToMapCmd     `cmd:"" help:"Convert a file to a map (tiled drawing)"`
 	Groups    FileGroupsCmd     `cmd:"" help:"Manage file groups"`
 }
@@ -670,4 +671,23 @@ func isValidMapFileType(filename string) bool {
 		strings.HasSuffix(lower, ".png") ||
 		strings.HasSuffix(lower, ".jpg") ||
 		strings.HasSuffix(lower, ".jpeg")
+}
+
+type FilesTagsCmd struct {
+	Database string   `arg:"" help:"Project database name"`
+	FileID   string   `arg:"" help:"File ID (full CouchDB ID)"`
+	Tags     []string `short:"t" help:"Tags to set (replaces existing tags, omit to clear all tags)"`
+}
+
+func (c *FilesTagsCmd) Run(client *api.Client) error {
+	if err := client.UpdateDocumentTags(c.Database, c.FileID, c.Tags); err != nil {
+		return fmt.Errorf("updating tags: %w", err)
+	}
+
+	if len(c.Tags) == 0 {
+		fmt.Printf("Tags cleared from file %s.\n", c.FileID)
+	} else {
+		fmt.Printf("Tags updated on file %s: %v\n", c.FileID, c.Tags)
+	}
+	return nil
 }

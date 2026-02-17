@@ -15,6 +15,7 @@ type MapsCmd struct {
 	Get    MapsGetCmd    `cmd:"" help:"Get map details"`
 	Add    MapsAddCmd    `cmd:"" help:"Add a new map (upload and convert PDF/image)"`
 	Delete MapsDeleteCmd `cmd:"" help:"Delete a map"`
+	Tags   MapsTagsCmd   `cmd:"" help:"Update tags on a map"`
 	Groups MapGroupsCmd  `cmd:"" help:"Manage map groups"`
 }
 
@@ -481,5 +482,24 @@ func (c *MapsDeleteCmd) Run(client *api.Client) error {
 	}
 
 	fmt.Printf("Map %s deleted successfully.\n", c.MapID)
+	return nil
+}
+
+type MapsTagsCmd struct {
+	Database string   `arg:"" help:"Project database name"`
+	MapID    string   `arg:"" help:"Map ID (full CouchDB ID)"`
+	Tags     []string `short:"t" help:"Tags to set (replaces existing tags, omit to clear all tags)"`
+}
+
+func (c *MapsTagsCmd) Run(client *api.Client) error {
+	if err := client.UpdateDocumentTags(c.Database, c.MapID, c.Tags); err != nil {
+		return fmt.Errorf("updating tags: %w", err)
+	}
+
+	if len(c.Tags) == 0 {
+		fmt.Printf("Tags cleared from map %s.\n", c.MapID)
+	} else {
+		fmt.Printf("Tags updated on map %s: %v\n", c.MapID, c.Tags)
+	}
 	return nil
 }
