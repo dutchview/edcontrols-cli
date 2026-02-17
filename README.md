@@ -10,6 +10,115 @@ A command-line interface for interacting with the EdControls platform. Manage pr
   <img src="assets/demo.gif" alt="EdControls CLI Demo" width="800">
 </p>
 
+## AI Agent Integration
+
+The EdControls CLI is designed to work seamlessly with AI agents and assistants, enabling powerful automation workflows for construction project management.
+
+### What AI Agents Can Do
+
+| Task | Example |
+|------|---------|
+| **Summarize tickets** | "Give me a summary of all open tickets for project X" |
+| **Bulk assignments** | "Assign all unassigned tickets to john@example.com" |
+| **Status reports** | "Generate a weekly status report for all active projects" |
+| **Auto-tagging** | "Tag all completed audits from last week with 'reviewed'" |
+| **Scheduled audits** | "Create a safety inspection audit for next Monday" |
+| **Data extraction** | "Export all tickets with 'urgent' tag to a spreadsheet" |
+
+### OpenClaw Integration
+
+[OpenClaw](https://openclaw.ai/) is an open-source AI agent that can automate tasks using CLI tools. The EdControls CLI includes a ready-to-use OpenClaw skill.
+
+**Install the skill:**
+
+```bash
+# Copy the skill to your OpenClaw workspace
+cp -r skills/edcontrols ~/.openclaw/skills/
+
+# Or link it directly
+ln -s $(pwd)/skills/edcontrols ~/.openclaw/skills/edcontrols
+```
+
+**Configure in `~/.openclaw/openclaw.json`:**
+
+```json
+{
+  "skills": {
+    "entries": {
+      "edcontrols": {
+        "enabled": true,
+        "env": {
+          "EDCONTROLS_ACCESS_TOKEN": "your-token-here"
+        }
+      }
+    }
+  }
+}
+```
+
+**Example prompts for OpenClaw:**
+- "List all my EdControls projects"
+- "Show open tickets for project nl_company_abc123"
+- "Assign ticket CC455B to sarah@example.com"
+- "Create a safety audit from template xyz for next Friday"
+- "Summarize the status of all audits in project X"
+
+**Daily automation example:**
+
+> "Hey Claw, can you tell me every morning which tickets were created yesterday and make a summary?"
+
+OpenClaw can be configured to run this automatically using cron:
+
+```bash
+# Add a daily job at 8:00 AM
+openclaw cron add --schedule "0 8 * * *" --message "Check EdControls for tickets created yesterday. Use 'ec tickets list' with date filters, summarize the new tickets by project, and send me the summary on WhatsApp."
+```
+
+The agent will:
+1. Run `ec tickets list -j` for each active project
+2. Filter tickets by creation date (yesterday)
+3. Generate a human-readable summary
+4. Send it to your preferred messaging channel
+
+### Claude Code / Claude Desktop
+
+The CLI works great with [Claude Code](https://claude.ai/claude-code) and Claude Desktop for interactive automation:
+
+```bash
+# Claude can run commands directly
+ec tickets list <project-id> -j | # Claude analyzes the JSON output
+
+# Example conversation:
+# You: "What tickets are overdue in my project?"
+# Claude: *runs ec tickets list, analyzes dates, provides summary*
+```
+
+### Other AI Assistants
+
+Any AI assistant with shell access can use the EdControls CLI:
+
+- **GitHub Copilot CLI** - Automate via natural language
+- **Cursor** - AI-powered development with EdControls integration
+- **Aider** - Pair programming with project management
+- **Custom agents** - Build your own using the JSON output (`-j` flag)
+
+### Building Custom Automations
+
+The CLI outputs JSON with the `-j` flag, making it easy to build automations:
+
+```bash
+# Get all started tickets as JSON
+ec tickets list <project-id> -s started -j
+
+# Pipe to jq for filtering
+ec tickets list <project-id> -j | jq '.[] | select(.participants.responsible == null)'
+
+# Use in scripts
+for ticket in $(ec tickets list <project-id> -j | jq -r '.[].couchDbId'); do
+  ec tickets update <project-id> $ticket -m "Automated status check"
+done
+```
+
 ## Installation
 
 ### macOS (Homebrew)
