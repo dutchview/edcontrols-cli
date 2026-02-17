@@ -6,7 +6,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"github.com/mauricejumelet/edcontrols-cli/internal/api"
+	"github.com/dutchview/edcontrols-cli/internal/api"
 )
 
 type ContractsCmd struct {

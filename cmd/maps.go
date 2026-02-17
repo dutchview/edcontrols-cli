@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/mauricejumelet/edcontrols-cli/internal/api"
+	"github.com/dutchview/edcontrols-cli/internal/api"
 )
 
 type MapsCmd struct {

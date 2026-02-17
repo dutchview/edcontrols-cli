@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/mauricejumelet/edcontrols-cli/cmd"
-	"github.com/mauricejumelet/edcontrols-cli/internal/api"
-	"github.com/mauricejumelet/edcontrols-cli/internal/config"
+	"github.com/dutchview/edcontrols-cli/cmd"
+	"github.com/dutchview/edcontrols-cli/internal/api"
+	"github.com/dutchview/edcontrols-cli/internal/config"
 )
 
 var version = "1.0.0"

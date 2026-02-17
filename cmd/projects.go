@@ -5,7 +5,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/mauricejumelet/edcontrols-cli/internal/api"
+	"github.com/dutchview/edcontrols-cli/internal/api"
 )
 
 type ProjectsCmd struct {
