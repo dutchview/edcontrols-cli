@@ -9,11 +9,13 @@ import (
 )
 
 type TemplatesCmd struct {
-	List   TemplatesListCmd   `cmd:"" help:"List audit templates"`
-	Get    TemplatesGetCmd    `cmd:"" help:"Get audit template details"`
-	Create TemplatesCreateCmd `cmd:"" help:"Create a new audit template"`
-	Update TemplatesUpdateCmd `cmd:"" help:"Update an audit template"`
-	Groups TemplateGroupsCmd  `cmd:"" help:"Manage template groups"`
+	List      TemplatesListCmd      `cmd:"" help:"List audit templates"`
+	Get       TemplatesGetCmd       `cmd:"" help:"Get audit template details"`
+	Create    TemplatesCreateCmd    `cmd:"" help:"Create a new audit template"`
+	Update    TemplatesUpdateCmd    `cmd:"" help:"Update an audit template"`
+	Publish   TemplatesPublishCmd   `cmd:"" help:"Publish an audit template"`
+	Unpublish TemplatesUnpublishCmd `cmd:"" help:"Unpublish an audit template"`
+	Groups    TemplateGroupsCmd     `cmd:"" help:"Manage template groups"`
 }
 
 type TemplateGroupsCmd struct {
@@ -280,5 +282,31 @@ func (c *TemplatesUpdateCmd) Run(client *api.Client) error {
 	}
 
 	fmt.Printf("Template %s updated successfully\n", c.TemplateID)
+	return nil
+}
+
+type TemplatesPublishCmd struct {
+	Database   string `arg:"" help:"Project database name"`
+	TemplateID string `arg:"" help:"Template ID"`
+}
+
+func (c *TemplatesPublishCmd) Run(client *api.Client) error {
+	if err := client.PublishAuditTemplate(c.Database, c.TemplateID, true); err != nil {
+		return fmt.Errorf("publishing template: %w", err)
+	}
+	fmt.Printf("Template %s published.\n", c.TemplateID)
+	return nil
+}
+
+type TemplatesUnpublishCmd struct {
+	Database   string `arg:"" help:"Project database name"`
+	TemplateID string `arg:"" help:"Template ID"`
+}
+
+func (c *TemplatesUnpublishCmd) Run(client *api.Client) error {
+	if err := client.PublishAuditTemplate(c.Database, c.TemplateID, false); err != nil {
+		return fmt.Errorf("unpublishing template: %w", err)
+	}
+	fmt.Printf("Template %s unpublished.\n", c.TemplateID)
 	return nil
 }

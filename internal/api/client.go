@@ -2392,3 +2392,50 @@ func (c *Client) CreateAuditTemplate(opts CreateAuditTemplateOptions) (string, e
 
 	return resp.ID, nil
 }
+
+// PublishAuditTemplate sets the isPublished property of an audit template
+func (c *Client) PublishAuditTemplate(database, templateID string, publish bool) error {
+	// Get the current document
+	doc, err := c.GetDocument(database, templateID)
+	if err != nil {
+		return fmt.Errorf("getting template: %w", err)
+	}
+
+	// Get user email for lastmodifier
+	email, err := c.Email()
+	if err != nil {
+		return fmt.Errorf("getting user email: %w", err)
+	}
+
+	now := time.Now().UTC()
+	timestamp := now.Format("2006-01-02T15:04:05.000Z")
+
+	// Update isPublished
+	doc["isPublished"] = publish
+
+	// Update lastmodifier
+	doc["lastmodifier"] = map[string]string{
+		"email": email,
+	}
+
+	// Update dates
+	if dates, ok := doc["dates"].(map[string]interface{}); ok {
+		dates["lastModifiedDate"] = timestamp
+		if publish {
+			dates["publishedDate"] = timestamp
+		}
+	}
+
+	// Save the document
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshaling document: %w", err)
+	}
+
+	putEndpoint := fmt.Sprintf("/api/v1/securedata/%s/%s",
+		url.PathEscape(database),
+		url.PathEscape(templateID))
+
+	_, err = c.doRequest("PUT", putEndpoint, strings.NewReader(string(jsonBody)))
+	return err
+}

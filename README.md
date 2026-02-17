@@ -610,6 +610,22 @@ ec templates update nl_company_abc123 template-id-here \
 | `-d, --description=STRING` | New description |
 | `-t, --tags=TAGS,...` | Tags to set (replaces existing) |
 
+#### templates publish
+
+Publish an audit template (makes it available for creating audits).
+
+```bash
+ec templates publish nl_company_abc123 template-id-here
+```
+
+#### templates unpublish
+
+Unpublish an audit template.
+
+```bash
+ec templates unpublish nl_company_abc123 template-id-here
+```
+
 #### templates groups list
 
 List template groups for a project.
