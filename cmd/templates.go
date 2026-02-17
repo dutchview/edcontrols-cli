@@ -90,12 +90,11 @@ type TemplatesGetCmd struct {
 	Database   string `arg:"" help:"Project database name"`
 	TemplateID string `arg:"" help:"Template ID"`
 	JSON       bool   `short:"j" help:"Output as JSON"`
-	Raw        bool   `short:"r" help:"Show raw CouchDB document"`
 }
 
 func (c *TemplatesGetCmd) Run(client *api.Client) error {
-	if c.Raw {
-		// Get raw document from CouchDB
+	if c.JSON {
+		// Return raw securedata document for JSON output
 		doc, err := client.GetDocument(c.Database, c.TemplateID)
 		if err != nil {
 			return err
@@ -106,10 +105,6 @@ func (c *TemplatesGetCmd) Run(client *api.Client) error {
 	template, err := client.GetAuditTemplate(c.Database, c.TemplateID)
 	if err != nil {
 		return err
-	}
-
-	if c.JSON {
-		return printJSON(template)
 	}
 
 	fmt.Printf("Template: %s\n", template.Name)
