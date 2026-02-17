@@ -17,6 +17,7 @@ var CLI struct {
 	Config string `short:"c" help:"Path to config file (.env format)" type:"path"`
 
 	// Commands
+	Contracts cmd.ContractsCmd `cmd:"" help:"List contracts (clients)"`
 	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects"`
 	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets"`
 	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits"`

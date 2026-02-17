@@ -12,6 +12,64 @@ type TemplatesCmd struct {
 	List   TemplatesListCmd   `cmd:"" help:"List audit templates"`
 	Get    TemplatesGetCmd    `cmd:"" help:"Get audit template details"`
 	Update TemplatesUpdateCmd `cmd:"" help:"Update an audit template"`
+	Groups TemplateGroupsCmd  `cmd:"" help:"Manage template groups"`
+}
+
+type TemplateGroupsCmd struct {
+	List TemplateGroupsListCmd `cmd:"" help:"List template groups"`
+}
+
+type TemplateGroupsListCmd struct {
+	Database string `arg:"" help:"Project database name (required)"`
+	Search   string `short:"s" help:"Search by name"`
+	Archived bool   `short:"a" help:"Include archived groups"`
+	Limit    int    `short:"l" default:"50" help:"Maximum number of groups to return"`
+	Page     int    `short:"p" default:"0" help:"Page number (0-based)"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *TemplateGroupsListCmd) Run(client *api.Client) error {
+	opts := api.ListGroupsOptions{
+		Database:   c.Database,
+		SearchName: c.Search,
+		Archived:   c.Archived,
+		Size:       c.Limit,
+		Page:       c.Page,
+	}
+
+	groups, total, err := client.ListTemplateGroups(opts)
+	if err != nil {
+		return err
+	}
+
+	if c.JSON {
+		return printJSON(groups)
+	}
+
+	if len(groups) == 0 {
+		fmt.Println("No template groups found.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME")
+	fmt.Fprintln(w, "--\t----")
+
+	for _, g := range groups {
+		groupID := g.CouchDbID
+		if groupID == "" {
+			groupID = g.CouchID
+		}
+		if groupID == "" {
+			groupID = g.ID
+		}
+		fmt.Fprintf(w, "%s\t%s\n", groupID, g.Name)
+	}
+
+	w.Flush()
+	fmt.Printf("\nTotal: %d template groups\n", total)
+
+	return nil
 }
 
 type TemplatesListCmd struct {

@@ -90,7 +90,22 @@ type Project struct {
 	StartDate   string      `json:"startDate,omitempty"`
 	EndDate     string      `json:"endDate,omitempty"`
 	IsActive    bool        `json:"isActive"`
-	Archived    interface{} `json:"archived"` // null, datetime string, or bool
+	Archived    interface{} `json:"archived"`   // null, datetime string, or bool
+	Contract    string      `json:"contract"`   // Contract document ID
+	Geomap      bool        `json:"geomap"`     // Whether geomap is enabled
+	IsGlacier   bool        `json:"isGlacier"`  // Whether project is in glacier storage
+}
+
+// Contract represents an EdControls contract/client
+type Contract struct {
+	ID           string   `json:"_id,omitempty"`
+	Rev          string   `json:"_rev,omitempty"`
+	Name         string   `json:"name"`
+	Type         string   `json:"type,omitempty"`
+	Projects     []string `json:"projects,omitempty"`
+	Active       bool     `json:"contractActive,omitempty"`
+	IsDemo       bool     `json:"isDemoContract,omitempty"`
+	PricePlan    string   `json:"pricePlan,omitempty"`
 }
 
 // TicketContent holds the content of a ticket
@@ -147,8 +162,11 @@ type MapDates struct {
 
 // MapGroup represents an EdControls map group (drawing group)
 type MapGroup struct {
-	ID   string `json:"_id"`
-	Name string `json:"name"`
+	ID        string `json:"id,omitempty"`
+	CouchID   string `json:"_id,omitempty"`
+	CouchDbID string `json:"couchDbId,omitempty"`
+	Name      string `json:"name"`
+	Archived  bool   `json:"archived,omitempty"`
 }
 
 // File represents an EdControls file (attachment/document)
@@ -175,8 +193,11 @@ type FileDates struct {
 
 // FileGroup represents an EdControls file group
 type FileGroup struct {
-	ID   string `json:"_id"`
-	Name string `json:"name"`
+	ID        string `json:"id,omitempty"`
+	CouchID   string `json:"_id,omitempty"`
+	CouchDbID string `json:"couchDbId,omitempty"`
+	Name      string `json:"name"`
+	Archived  bool   `json:"archived,omitempty"`
 }
 
 // Person represents a participant person
@@ -1078,4 +1099,154 @@ func (c *Client) SearchFilesByID(projectIDs []string, searchID string) ([]File, 
 	}
 
 	return files, nil
+}
+
+// TemplateGroup represents an EdControls audit template group
+type TemplateGroup struct {
+	ID        string `json:"id,omitempty"`
+	CouchID   string `json:"_id,omitempty"`
+	CouchDbID string `json:"couchDbId,omitempty"`
+	Name      string `json:"name"`
+	Archived  bool   `json:"archived,omitempty"`
+}
+
+// GetContract returns a contract by its ID from the clients database
+func (c *Client) GetContract(contractID string) (*Contract, error) {
+	endpoint := fmt.Sprintf("/api/v1/securedata/clients/%s", url.PathEscape(contractID))
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var contract Contract
+	if err := json.Unmarshal(body, &contract); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &contract, nil
+}
+
+// ListGroupsOptions contains options for listing groups
+type ListGroupsOptions struct {
+	Database   string
+	SearchName string
+	Archived   bool
+	Page       int
+	Size       int
+}
+
+// ListMapGroups returns map groups (drawing groups) for a project
+func (c *Client) ListMapGroups(opts ListGroupsOptions) ([]MapGroup, int, error) {
+	params := url.Values{}
+	params.Set("database", opts.Database)
+
+	if opts.SearchName != "" {
+		params.Set("searchByName", opts.SearchName)
+	}
+	if opts.Archived {
+		params.Set("archived", "true")
+	}
+	if opts.Page > 0 {
+		params.Set("page", fmt.Sprintf("%d", opts.Page))
+	}
+	if opts.Size > 0 {
+		params.Set("size", fmt.Sprintf("%d", opts.Size))
+	} else {
+		params.Set("size", "50")
+	}
+
+	endpoint := "/api/v2/data/drawingGroups?" + params.Encode()
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, 0, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var groups []MapGroup
+	if err := json.Unmarshal(result.Results, &groups); err != nil {
+		return nil, 0, fmt.Errorf("parsing map groups: %w", err)
+	}
+
+	return groups, result.Hits, nil
+}
+
+// ListTemplateGroups returns audit template groups for a project
+func (c *Client) ListTemplateGroups(opts ListGroupsOptions) ([]TemplateGroup, int, error) {
+	params := url.Values{}
+	params.Set("database", opts.Database)
+
+	if opts.SearchName != "" {
+		params.Set("searchByName", opts.SearchName)
+	}
+	if opts.Archived {
+		params.Set("archived", "true")
+	}
+	if opts.Page > 0 {
+		params.Set("page", fmt.Sprintf("%d", opts.Page))
+	}
+	if opts.Size > 0 {
+		params.Set("size", fmt.Sprintf("%d", opts.Size))
+	} else {
+		params.Set("size", "50")
+	}
+
+	endpoint := "/api/v2/data/audits/templategroups?" + params.Encode()
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, 0, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var groups []TemplateGroup
+	if err := json.Unmarshal(result.Results, &groups); err != nil {
+		return nil, 0, fmt.Errorf("parsing template groups: %w", err)
+	}
+
+	return groups, result.Hits, nil
+}
+
+// ListFileGroups returns file groups for a project
+func (c *Client) ListFileGroups(opts ListGroupsOptions) ([]FileGroup, int, error) {
+	params := url.Values{}
+
+	if opts.SearchName != "" {
+		params.Set("searchByName", opts.SearchName)
+	}
+	if opts.Archived {
+		params.Set("archived", "true")
+	}
+	if opts.Page > 0 {
+		params.Set("page", fmt.Sprintf("%d", opts.Page))
+	}
+	if opts.Size > 0 {
+		params.Set("size", fmt.Sprintf("%d", opts.Size))
+	} else {
+		params.Set("size", "50")
+	}
+
+	endpoint := "/api/v2/data/fileGroup/" + url.PathEscape(opts.Database) + "?" + params.Encode()
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, 0, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var groups []FileGroup
+	if err := json.Unmarshal(result.Results, &groups); err != nil {
+		return nil, 0, fmt.Errorf("parsing file groups: %w", err)
+	}
+
+	return groups, result.Hits, nil
 }

@@ -10,8 +10,66 @@ import (
 )
 
 type FilesCmd struct {
-	List FilesListCmd `cmd:"" help:"List files"`
-	Get  FilesGetCmd  `cmd:"" help:"Get file details"`
+	List   FilesListCmd   `cmd:"" help:"List files"`
+	Get    FilesGetCmd    `cmd:"" help:"Get file details"`
+	Groups FileGroupsCmd  `cmd:"" help:"Manage file groups"`
+}
+
+type FileGroupsCmd struct {
+	List FileGroupsListCmd `cmd:"" help:"List file groups"`
+}
+
+type FileGroupsListCmd struct {
+	Database string `arg:"" help:"Project database name (required)"`
+	Search   string `short:"s" help:"Search by name"`
+	Archived bool   `short:"a" help:"Include archived groups"`
+	Limit    int    `short:"l" default:"50" help:"Maximum number of groups to return"`
+	Page     int    `short:"p" default:"0" help:"Page number (0-based)"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *FileGroupsListCmd) Run(client *api.Client) error {
+	opts := api.ListGroupsOptions{
+		Database:   c.Database,
+		SearchName: c.Search,
+		Archived:   c.Archived,
+		Size:       c.Limit,
+		Page:       c.Page,
+	}
+
+	groups, total, err := client.ListFileGroups(opts)
+	if err != nil {
+		return err
+	}
+
+	if c.JSON {
+		return printJSON(groups)
+	}
+
+	if len(groups) == 0 {
+		fmt.Println("No file groups found.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME")
+	fmt.Fprintln(w, "--\t----")
+
+	for _, g := range groups {
+		groupID := g.CouchDbID
+		if groupID == "" {
+			groupID = g.CouchID
+		}
+		if groupID == "" {
+			groupID = g.ID
+		}
+		fmt.Fprintf(w, "%s\t%s\n", groupID, g.Name)
+	}
+
+	w.Flush()
+	fmt.Printf("\nTotal: %d file groups\n", total)
+
+	return nil
 }
 
 type FilesListCmd struct {

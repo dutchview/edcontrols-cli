@@ -10,8 +10,66 @@ import (
 )
 
 type MapsCmd struct {
-	List MapsListCmd `cmd:"" help:"List maps (drawings)"`
-	Get  MapsGetCmd  `cmd:"" help:"Get map details"`
+	List   MapsListCmd   `cmd:"" help:"List maps (drawings)"`
+	Get    MapsGetCmd    `cmd:"" help:"Get map details"`
+	Groups MapGroupsCmd  `cmd:"" help:"Manage map groups"`
+}
+
+type MapGroupsCmd struct {
+	List MapGroupsListCmd `cmd:"" help:"List map groups"`
+}
+
+type MapGroupsListCmd struct {
+	Database string `arg:"" help:"Project database name (required)"`
+	Search   string `short:"s" help:"Search by name"`
+	Archived bool   `short:"a" help:"Include archived groups"`
+	Limit    int    `short:"l" default:"50" help:"Maximum number of groups to return"`
+	Page     int    `short:"p" default:"0" help:"Page number (0-based)"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *MapGroupsListCmd) Run(client *api.Client) error {
+	opts := api.ListGroupsOptions{
+		Database:   c.Database,
+		SearchName: c.Search,
+		Archived:   c.Archived,
+		Size:       c.Limit,
+		Page:       c.Page,
+	}
+
+	groups, total, err := client.ListMapGroups(opts)
+	if err != nil {
+		return err
+	}
+
+	if c.JSON {
+		return printJSON(groups)
+	}
+
+	if len(groups) == 0 {
+		fmt.Println("No map groups found.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tNAME")
+	fmt.Fprintln(w, "--\t----")
+
+	for _, g := range groups {
+		groupID := g.CouchDbID
+		if groupID == "" {
+			groupID = g.CouchID
+		}
+		if groupID == "" {
+			groupID = g.ID
+		}
+		fmt.Fprintf(w, "%s\t%s\n", groupID, g.Name)
+	}
+
+	w.Flush()
+	fmt.Printf("\nTotal: %d map groups\n", total)
+
+	return nil
 }
 
 type MapsListCmd struct {
