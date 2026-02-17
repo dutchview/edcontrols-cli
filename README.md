@@ -6,6 +6,10 @@
 
 A command-line interface for interacting with the EdControls platform. Manage projects, tickets, audits, templates, maps, and files directly from your terminal.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="EdControls CLI Demo" width="800">
+</p>
+
 ## Installation
 
 ### macOS (Homebrew)
