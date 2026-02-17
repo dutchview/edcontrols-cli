@@ -252,9 +252,13 @@ func (c *TicketsGetCmd) Run(client *api.Client) error {
 
 	// Fetch map and map group names if available
 	if ticket.MapID != "" {
-		mapDoc, err := client.GetMap(database, ticket.MapID)
-		if err == nil && mapDoc.Name != "" {
-			fmt.Printf("Map: %s\n", mapDoc.Name)
+		if ticket.MapID == "EDGeomapMapID" {
+			fmt.Printf("Map: Google Maps\n")
+		} else {
+			mapDoc, err := client.GetMap(database, ticket.MapID)
+			if err == nil && mapDoc.Name != "" {
+				fmt.Printf("Map: %s\n", mapDoc.Name)
+			}
 		}
 	}
 

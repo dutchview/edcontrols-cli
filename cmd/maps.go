@@ -85,13 +85,19 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "HUMAN_ID\tNAME\tGROUP\tCREATED\tMODIFIED")
-	fmt.Fprintln(w, "--------\t----\t-----\t-------\t--------")
+	fmt.Fprintln(w, "ID\tNAME\tGROUP\tCREATED\tMODIFIED")
+	fmt.Fprintln(w, "--\t----\t-----\t-------\t--------")
 
 	for _, m := range maps {
 		mapID := m.CouchDbID
 		if mapID == "" {
 			mapID = m.CouchID
+		}
+
+		// Handle special Google Maps entry
+		if mapID == "EDGeomapMapID" {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "<google-maps>", "Google Maps", "-", "-", "-")
+			continue
 		}
 
 		created := "-"
@@ -110,7 +116,7 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 		}
 
 		name := truncate(m.Name, 40)
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", humanID(mapID), name, groupName, created, modified)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", mapID, name, groupName, created, modified)
 	}
 
 	w.Flush()
@@ -126,57 +132,40 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 }
 
 type MapsGetCmd struct {
-	MapID    string `arg:"" help:"Map ID (human ID or full CouchDB ID)"`
-	Database string `short:"d" help:"Project database name (required for human ID lookup)"`
+	Database string `arg:"" help:"Project database name"`
+	MapID    string `arg:"" help:"Map ID (full CouchDB ID)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 
 func (c *MapsGetCmd) Run(client *api.Client) error {
-	database := c.Database
-	mapID := c.MapID
-
-	// If no database provided and it looks like a human ID, we need the database
-	if database == "" && len(c.MapID) <= 6 {
-		return fmt.Errorf("database is required for human ID lookup, use -d flag")
-	}
-
-	// If it's a human ID, search for it
-	if len(c.MapID) <= 6 && database != "" {
-		foundID, err := findMapByHumanID(client, c.MapID, database)
-		if err != nil {
-			return err
-		}
-		mapID = foundID
-	}
-
 	if c.JSON {
 		// Return raw securedata document for JSON output
-		doc, err := client.GetDocument(database, mapID)
+		doc, err := client.GetDocument(c.Database, c.MapID)
 		if err != nil {
 			return err
 		}
 		return printJSON(doc)
 	}
 
-	m, err := client.GetMap(database, mapID)
+	m, err := client.GetMap(c.Database, c.MapID)
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Map: %s\n", m.Name)
-	fmt.Printf("ID: %s (%s)\n", humanID(mapID), mapID)
+	fmt.Printf("ID: %s\n", c.MapID)
 
 	// Fetch project name
-	project, err := client.GetProject(database)
+	project, err := client.GetProject(c.Database)
 	if err == nil && project.ProjectName != "" {
-		fmt.Printf("Project: %s (%s)\n", project.ProjectName, database)
+		fmt.Printf("Project: %s (%s)\n", project.ProjectName, c.Database)
 	} else {
-		fmt.Printf("Project: %s\n", database)
+		fmt.Printf("Project: %s\n", c.Database)
 	}
 
 	// Fetch map group name
 	if m.GroupID != "" {
-		group, err := client.GetMapGroup(database, m.GroupID)
+		group, err := client.GetMapGroup(c.Database, m.GroupID)
 		if err == nil && group.Name != "" {
 			fmt.Printf("Map Group: %s\n", group.Name)
 		}
@@ -196,56 +185,4 @@ func (c *MapsGetCmd) Run(client *api.Client) error {
 	}
 
 	return nil
-}
-
-// findMapByHumanID searches for a map matching the given human ID in a database.
-func findMapByHumanID(client *api.Client, searchID string, database string) (string, error) {
-	searchID = toUpper(searchID)
-
-	opts := api.ListMapsOptions{
-		Database:   database,
-		SearchByID: toLower(searchID),
-		Size:       50,
-	}
-
-	maps, _, err := client.ListMaps(opts)
-	if err != nil {
-		return "", err
-	}
-
-	for _, m := range maps {
-		mapID := m.CouchDbID
-		if mapID == "" {
-			mapID = m.CouchID
-		}
-		if humanID(mapID) == searchID {
-			return mapID, nil
-		}
-	}
-
-	return "", fmt.Errorf("map with ID %s not found", searchID)
-}
-
-func toUpper(s string) string {
-	result := make([]byte, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'a' && c <= 'z' {
-			c -= 'a' - 'A'
-		}
-		result[i] = c
-	}
-	return string(result)
-}
-
-func toLower(s string) string {
-	result := make([]byte, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		result[i] = c
-	}
-	return string(result)
 }
