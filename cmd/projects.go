@@ -106,7 +106,12 @@ func (c *ProjectsGetCmd) Run(client *api.Client) error {
 	}
 
 	if c.JSON {
-		return printJSON(project)
+		// Return raw securedata document for JSON output
+		doc, err := client.GetDocument(c.Database, project.CouchDbID)
+		if err != nil {
+			return err
+		}
+		return printJSON(doc)
 	}
 
 	fmt.Printf("Project: %s\n", project.ProjectName)

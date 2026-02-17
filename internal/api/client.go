@@ -129,9 +129,20 @@ type Ticket struct {
 
 // Map represents an EdControls map (drawing)
 type Map struct {
-	ID      string `json:"_id"`
-	Name    string `json:"name"`
-	GroupID string `json:"groupId,omitempty"`
+	ID        string    `json:"id,omitempty"`
+	CouchID   string    `json:"_id,omitempty"`
+	CouchDbID string    `json:"couchDbId,omitempty"`
+	Name      string    `json:"name"`
+	GroupID   string    `json:"groupId,omitempty"`
+	GroupName string    `json:"groupName,omitempty"`
+	Dates     *MapDates `json:"dates,omitempty"`
+	Tags      []string  `json:"tags,omitempty"`
+}
+
+// MapDates holds date fields for a map
+type MapDates struct {
+	CreationDate string `json:"creationDate,omitempty"`
+	LastModified string `json:"lastModifiedDate,omitempty"`
 }
 
 // MapGroup represents an EdControls map group (drawing group)
@@ -782,6 +793,78 @@ func (c *Client) GetMapGroup(database, groupID string) (*MapGroup, error) {
 	}
 
 	return &mg, nil
+}
+
+// ListMapsOptions contains options for listing maps
+type ListMapsOptions struct {
+	Database   string // Required
+	GroupID    string
+	SearchName string
+	SearchByID string
+	Tag        string
+	Archived   bool
+	AllMaps    bool
+	SortBy     string
+	SortOrder  string
+	Page       int
+	Size       int
+}
+
+// ListMaps returns maps for a project
+func (c *Client) ListMaps(opts ListMapsOptions) ([]Map, int, error) {
+	params := url.Values{}
+	params.Set("database", opts.Database)
+
+	if opts.GroupID != "" {
+		params.Set("groupid", opts.GroupID)
+	}
+	if opts.SearchName != "" {
+		params.Set("searchByName", opts.SearchName)
+	}
+	if opts.SearchByID != "" {
+		params.Set("searchById", opts.SearchByID)
+	}
+	if opts.Tag != "" {
+		params.Set("tag", opts.Tag)
+	}
+	if opts.Archived {
+		params.Set("archived", "true")
+	}
+	if opts.AllMaps {
+		params.Set("allMaps", "true")
+	}
+	if opts.SortBy != "" {
+		params.Set("sortby", opts.SortBy)
+	}
+	if opts.SortOrder != "" {
+		params.Set("sortOrder", opts.SortOrder)
+	}
+	if opts.Page > 0 {
+		params.Set("page", fmt.Sprintf("%d", opts.Page))
+	}
+	if opts.Size > 0 {
+		params.Set("size", fmt.Sprintf("%d", opts.Size))
+	} else {
+		params.Set("size", "50")
+	}
+
+	endpoint := "/api/v2/data/maps?" + params.Encode()
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, 0, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var maps []Map
+	if err := json.Unmarshal(result.Results, &maps); err != nil {
+		return nil, 0, fmt.Errorf("parsing maps: %w", err)
+	}
+
+	return maps, result.Hits, nil
 }
 
 // UpdateDocument updates a raw CouchDB document
