@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/mauricejumelet/edcontrols-cli/internal/api"
 )
@@ -12,6 +13,7 @@ import (
 type FilesCmd struct {
 	List   FilesListCmd   `cmd:"" help:"List files"`
 	Get    FilesGetCmd    `cmd:"" help:"Get file details"`
+	Add    FilesAddCmd    `cmd:"" help:"Add a new file (upload PDF, image, etc.)"`
 	Groups FileGroupsCmd  `cmd:"" help:"Manage file groups"`
 }
 
@@ -381,4 +383,122 @@ func formatFileSize(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+type FilesAddCmd struct {
+	Database string   `arg:"" help:"Project database name"`
+	GroupID  string   `arg:"" help:"File group ID"`
+	File     string   `arg:"" help:"Path to file to upload" type:"existingfile"`
+	Name     string   `short:"n" help:"File name (defaults to filename)"`
+	Tags     []string `short:"t" help:"Tags to add (can be specified multiple times)"`
+	JSON     bool     `short:"j" help:"Output as JSON"`
+}
+
+func (c *FilesAddCmd) Run(client *api.Client) error {
+	// Read the file
+	fileData, err := os.ReadFile(c.File)
+	if err != nil {
+		return fmt.Errorf("reading file: %w", err)
+	}
+
+	// Get file info
+	fileInfo, err := os.Stat(c.File)
+	if err != nil {
+		return fmt.Errorf("getting file info: %w", err)
+	}
+
+	// Determine display name
+	displayName := c.Name
+	if displayName == "" {
+		displayName = fileInfo.Name()
+	}
+
+	// Generate unique upload filename with timestamp
+	ext := ""
+	if idx := strings.LastIndex(fileInfo.Name(), "."); idx >= 0 {
+		ext = fileInfo.Name()[idx:]
+	}
+	baseName := strings.TrimSuffix(fileInfo.Name(), ext)
+	uploadName := fmt.Sprintf("%s-%d%s", baseName, time.Now().UnixMilli(), ext)
+
+	// Determine content type based on extension
+	contentType := getContentType(c.File)
+
+	fmt.Printf("Uploading %s (%s)...\n", displayName, formatFileSize(fileInfo.Size()))
+
+	// Step 1: Initiate upload
+	initResp, err := client.InitiateUpload(c.Database, uploadName)
+	if err != nil {
+		return fmt.Errorf("initiating upload: %w", err)
+	}
+
+	// Step 2: Upload file data (single chunk for now)
+	if err := client.UploadChunk(initResp.UUID, uploadName, 0, fileData); err != nil {
+		return fmt.Errorf("uploading file: %w", err)
+	}
+
+	// Step 3: Complete upload
+	completeResp, err := client.CompleteUpload(initResp.UUID, uploadName)
+	if err != nil {
+		return fmt.Errorf("completing upload: %w", err)
+	}
+
+	// Step 4: Create the file document
+	fileResp, err := client.CreateFile(api.CreateFileOptions{
+		Database:     c.Database,
+		FileName:     displayName,
+		UploadedName: uploadName,
+		FileURL:      completeResp.SignedURL,
+		FileGroupID:  c.GroupID,
+		ContentType:  contentType,
+		Size:         fileInfo.Size(),
+		Tags:         c.Tags,
+	})
+	if err != nil {
+		return fmt.Errorf("creating file: %w", err)
+	}
+
+	if c.JSON {
+		return printJSON(fileResp)
+	}
+
+	fmt.Printf("File uploaded successfully!\n")
+	fmt.Printf("Name: %s\n", displayName)
+
+	return nil
+}
+
+// getContentType returns the MIME type based on file extension
+func getContentType(filename string) string {
+	lower := strings.ToLower(filename)
+	switch {
+	case strings.HasSuffix(lower, ".pdf"):
+		return "application/pdf"
+	case strings.HasSuffix(lower, ".png"):
+		return "image/png"
+	case strings.HasSuffix(lower, ".jpg"), strings.HasSuffix(lower, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(lower, ".gif"):
+		return "image/gif"
+	case strings.HasSuffix(lower, ".svg"):
+		return "image/svg+xml"
+	case strings.HasSuffix(lower, ".webp"):
+		return "image/webp"
+	case strings.HasSuffix(lower, ".bmp"):
+		return "image/bmp"
+	case strings.HasSuffix(lower, ".tiff"), strings.HasSuffix(lower, ".tif"):
+		return "image/tiff"
+	case strings.HasSuffix(lower, ".doc"):
+		return "application/msword"
+	case strings.HasSuffix(lower, ".docx"):
+		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case strings.HasSuffix(lower, ".xls"):
+		return "application/vnd.ms-excel"
+	case strings.HasSuffix(lower, ".xlsx"):
+		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	case strings.HasSuffix(lower, ".txt"):
+		return "text/plain"
+	default:
+		return "application/octet-stream"
+	}
 }

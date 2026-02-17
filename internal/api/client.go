@@ -1,12 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/mauricejumelet/edcontrols-cli/internal/config"
 )
@@ -1297,4 +1300,226 @@ func (c *Client) ListFileGroups(opts ListGroupsOptions) ([]FileGroup, int, error
 	}
 
 	return groups, result.Hits, nil
+}
+
+// UploadInitResponse is the response from the initiate upload endpoint
+type UploadInitResponse struct {
+	UUID string `json:"uuid"`
+}
+
+// UploadCompleteResponse is the response from the complete upload endpoint
+type UploadCompleteResponse struct {
+	SignedURL string `json:"signedUrl"`
+}
+
+// InitiateUpload initiates a file upload and returns a UUID for subsequent operations
+func (c *Client) InitiateUpload(database, fileName string) (*UploadInitResponse, error) {
+	reqBody := map[string]string{
+		"fileName": fileName,
+		"database": database,
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+
+	body, err := c.doRequest("POST", "/api/v1/fileUpload/initiate", strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, err
+	}
+
+	var result UploadInitResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UploadChunk uploads a chunk of file data
+func (c *Client) UploadChunk(uuid string, fileName string, chunkIndex int, data []byte) error {
+	// Create multipart form
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add the file chunk
+	part, err := writer.CreateFormFile("chunk", "blob")
+	if err != nil {
+		return fmt.Errorf("creating form file: %w", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		return fmt.Errorf("writing chunk data: %w", err)
+	}
+
+	// Add fileName field
+	if err := writer.WriteField("fileName", fileName); err != nil {
+		return fmt.Errorf("writing fileName field: %w", err)
+	}
+
+	// Add chunkIndex field
+	if err := writer.WriteField("chunkIndex", fmt.Sprintf("%d", chunkIndex)); err != nil {
+		return fmt.Errorf("writing chunkIndex field: %w", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("closing multipart writer: %w", err)
+	}
+
+	// Build the request manually since we need custom Content-Type
+	reqURL := baseURL + "/api/v1/fileUpload/upload?uuid=" + url.QueryEscape(uuid)
+	req, err := http.NewRequest("POST", reqURL, &buf)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upload chunk failed (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+// CompleteUpload marks an upload as complete and returns the signed URL
+func (c *Client) CompleteUpload(uuid, fileName string) (*UploadCompleteResponse, error) {
+	reqBody := map[string]string{
+		"uuid":     uuid,
+		"fileName": fileName,
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+
+	body, err := c.doRequest("POST", "/api/v1/fileUpload/uploadCompleted", strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, err
+	}
+
+	var result UploadCompleteResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CreateFileOptions contains options for creating a file document
+type CreateFileOptions struct {
+	Database     string
+	FileName     string   // Display name
+	UploadedName string   // Name used during upload (with timestamp)
+	FileURL      string   // Signed URL from upload completion
+	FileGroupID  string   // File group ID
+	ContentType  string   // MIME type
+	Size         int64    // File size in bytes
+	Tags         []string // Optional tags
+}
+
+// CreateFileResponse is the response from creating a file
+type CreateFileResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// CreateFile creates a file document in EdControls
+func (c *Client) CreateFile(opts CreateFileOptions) (*CreateFileResponse, error) {
+	// Get project info to get the CouchDB ID
+	project, err := c.GetProject(opts.Database)
+	if err != nil {
+		return nil, fmt.Errorf("getting project: %w", err)
+	}
+
+	// Get the current user's email
+	email, err := c.Email()
+	if err != nil {
+		return nil, fmt.Errorf("getting user email: %w", err)
+	}
+
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	timeOnly := time.Now().UTC().Format("15:04:05")
+	channelID := fmt.Sprintf("%d%s", time.Now().UnixMilli(), project.CouchDbID)
+
+	// Build the file document
+	fileDoc := map[string]interface{}{
+		"fileName":    opts.FileName,
+		"couchDbId":   "",
+		"attachments": []interface{}{},
+		"project":     project.CouchDbID,
+		"type":        "IB.EdBundle.Document.File",
+		"content": map[string]string{
+			"author":       email,
+			"lastModifier": email,
+		},
+		"archived":    nil,
+		"fileGroupID": opts.FileGroupID,
+		"contentType": opts.ContentType,
+		"thumbnail":   nil,
+		"dates": map[string]string{
+			"creationDate":     now,
+			"lastModifiedDate": now,
+		},
+		"tags":     opts.Tags,
+		"deleted":  nil,
+		"size":     fmt.Sprintf("%d", opts.Size),
+		"versions": nil,
+		"operation": []map[string]interface{}{
+			{
+				"changedProperties": []string{"file Upload"},
+				"oldValues":         []string{""},
+				"newValues":         []string{opts.FileName},
+				"author":            email,
+				"time":              now,
+				"summary":           "File uploaded via CLI",
+				"actionType":        "created",
+				"platform": map[string]string{
+					"userInterface":    "cli",
+					"interfaceVersion": "1.0.0",
+				},
+			},
+		},
+		"channelId": channelID,
+		"job":       nil,
+		"time":      timeOnly,
+	}
+
+	if opts.Tags == nil {
+		fileDoc["tags"] = []string{}
+	}
+
+	jsonBody, err := json.Marshal(fileDoc)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling file document: %w", err)
+	}
+
+	// Build the endpoint with query parameters
+	params := url.Values{}
+	params.Set("fileUrl", opts.FileURL)
+	params.Set("uploadedName", opts.UploadedName)
+
+	endpoint := fmt.Sprintf("/api/v2/data/file/%s?%s", url.PathEscape(opts.Database), params.Encode())
+
+	body, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, err
+	}
+
+	var result CreateFileResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	return &result, nil
 }
