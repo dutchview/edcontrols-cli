@@ -11,10 +11,11 @@ import (
 )
 
 type FilesCmd struct {
-	List   FilesListCmd   `cmd:"" help:"List files"`
-	Get    FilesGetCmd    `cmd:"" help:"Get file details"`
-	Add    FilesAddCmd    `cmd:"" help:"Add a new file (upload PDF, image, etc.)"`
-	Groups FileGroupsCmd  `cmd:"" help:"Manage file groups"`
+	List     FilesListCmd     `cmd:"" help:"List files"`
+	Get      FilesGetCmd      `cmd:"" help:"Get file details"`
+	Add      FilesAddCmd      `cmd:"" help:"Add a new file (upload PDF, image, etc.)"`
+	Download FilesDownloadCmd `cmd:"" help:"Download a file"`
+	Groups   FileGroupsCmd    `cmd:"" help:"Manage file groups"`
 }
 
 type FileGroupsCmd struct {
@@ -501,4 +502,66 @@ func getContentType(filename string) string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+type FilesDownloadCmd struct {
+	FileID   string `arg:"" help:"File ID (full CouchDB ID)"`
+	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
+	Output   string `short:"o" help:"Output file path (defaults to original filename)"`
+}
+
+func (c *FilesDownloadCmd) Run(client *api.Client) error {
+	database := c.Database
+	fileID := c.FileID
+
+	// If no database provided, search for the file across all projects
+	if database == "" {
+		foundDB, err := findFileByID(client, fileID)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+	}
+
+	// Get file details to retrieve versionId and filename
+	f, err := client.GetFile(database, fileID)
+	if err != nil {
+		return fmt.Errorf("getting file details: %w", err)
+	}
+
+	if f.VersionID == "" {
+		return fmt.Errorf("file has no versionId, cannot download")
+	}
+
+	// Determine filename
+	fileName := f.FileName
+	if fileName == "" {
+		fileName = f.Name
+	}
+	if fileName == "" {
+		fileName = "download"
+	}
+
+	// Determine output path
+	outputPath := c.Output
+	if outputPath == "" {
+		outputPath = fileName
+	}
+
+	fmt.Printf("Downloading %s...\n", fileName)
+
+	// Download the file
+	data, err := client.DownloadFile(database, fileID, f.VersionID, fileName)
+	if err != nil {
+		return fmt.Errorf("downloading file: %w", err)
+	}
+
+	// Write to output file
+	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+		return fmt.Errorf("writing file: %w", err)
+	}
+
+	fmt.Printf("Downloaded to %s (%s)\n", outputPath, formatFileSize(int64(len(data))))
+
+	return nil
 }

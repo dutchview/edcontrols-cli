@@ -230,6 +230,7 @@ type File struct {
 	Author      *Person     `json:"author,omitempty"`
 	Archived    interface{} `json:"archived,omitempty"` // null, datetime string, or bool
 	Deleted     interface{} `json:"deleted,omitempty"`  // null, datetime string, or bool
+	VersionID   string      `json:"versionId,omitempty"` // Download token
 }
 
 // FileDates holds date fields for a file
@@ -1522,4 +1523,41 @@ func (c *Client) CreateFile(opts CreateFileOptions) (*CreateFileResponse, error)
 	}
 
 	return &result, nil
+}
+
+// DownloadFile downloads a file and returns its contents
+func (c *Client) DownloadFile(database, fileID, versionID, fileName string) ([]byte, error) {
+	// Build the download URL: /api/v2/data/file/{database}/{fileId}/{versionId}/{fileName}/downloadFile
+	endpoint := fmt.Sprintf("/api/v2/data/file/%s/%s/%s/%s/downloadFile",
+		url.PathEscape(database),
+		url.PathEscape(fileID),
+		url.PathEscape(versionID),
+		url.PathEscape(fileName))
+
+	reqURL := baseURL + endpoint
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "*/*")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("download failed (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+
+	return data, nil
 }
