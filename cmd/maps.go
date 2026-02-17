@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/mauricejumelet/edcontrols-cli/internal/api"
@@ -132,40 +133,52 @@ func (c *MapsListCmd) Run(client *api.Client) error {
 }
 
 type MapsGetCmd struct {
-	Database string `arg:"" help:"Project database name"`
 	MapID    string `arg:"" help:"Map ID (full CouchDB ID)"`
+	Database string `short:"d" help:"Project database name (optional, will search if not provided)"`
 	JSON     bool   `short:"j" help:"Output as JSON"`
 }
 
 func (c *MapsGetCmd) Run(client *api.Client) error {
+	database := c.Database
+	mapID := c.MapID
+
+	// If no database provided, search for the map across all projects
+	if database == "" {
+		foundDB, err := findMapByID(client, mapID)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+	}
+
 	if c.JSON {
 		// Return raw securedata document for JSON output
-		doc, err := client.GetDocument(c.Database, c.MapID)
+		doc, err := client.GetDocument(database, mapID)
 		if err != nil {
 			return err
 		}
 		return printJSON(doc)
 	}
 
-	m, err := client.GetMap(c.Database, c.MapID)
+	m, err := client.GetMap(database, mapID)
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Map: %s\n", m.Name)
-	fmt.Printf("ID: %s\n", c.MapID)
+	fmt.Printf("ID: %s\n", mapID)
 
 	// Fetch project name
-	project, err := client.GetProject(c.Database)
+	project, err := client.GetProject(database)
 	if err == nil && project.ProjectName != "" {
-		fmt.Printf("Project: %s (%s)\n", project.ProjectName, c.Database)
+		fmt.Printf("Project: %s (%s)\n", project.ProjectName, database)
 	} else {
-		fmt.Printf("Project: %s\n", c.Database)
+		fmt.Printf("Project: %s\n", database)
 	}
 
 	// Fetch map group name
 	if m.GroupID != "" {
-		group, err := client.GetMapGroup(c.Database, m.GroupID)
+		group, err := client.GetMapGroup(database, m.GroupID)
 		if err == nil && group.Name != "" {
 			fmt.Printf("Map Group: %s\n", group.Name)
 		}
@@ -185,4 +198,49 @@ func (c *MapsGetCmd) Run(client *api.Client) error {
 	}
 
 	return nil
+}
+
+// findMapByID searches for a map by its full CouchDB ID across all active projects.
+// Returns the database name where the map was found.
+func findMapByID(client *api.Client, mapID string) (string, error) {
+	projects, _, err := client.ListProjects(api.ListProjectsOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	var projectIDs []string
+	for _, project := range projects {
+		if project.ProjectID == "glacier_project_documents" || !project.IsActive {
+			continue
+		}
+		projectIDs = append(projectIDs, project.ProjectID)
+	}
+
+	// Try the POST search endpoint first
+	maps, err := client.SearchMapsByID(projectIDs, mapID)
+	if err == nil && len(maps) > 0 {
+		for _, m := range maps {
+			mID := m.CouchDbID
+			if mID == "" {
+				mID = m.CouchID
+			}
+			if mID == mapID {
+				// Extract database from the map's ID field (format: database|couchDbId)
+				if m.ID != "" && strings.Contains(m.ID, "|") {
+					parts := strings.SplitN(m.ID, "|", 2)
+					return parts[0], nil
+				}
+			}
+		}
+	}
+
+	// Fallback: search each project directly
+	for _, projectID := range projectIDs {
+		_, err := client.GetMap(projectID, mapID)
+		if err == nil {
+			return projectID, nil
+		}
+	}
+
+	return "", fmt.Errorf("map with ID %s not found", mapID)
 }

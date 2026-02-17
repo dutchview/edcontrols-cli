@@ -444,6 +444,40 @@ func (c *Client) SearchAuditsByID(projectIDs []string, searchID string) ([]Audit
 	return audits, nil
 }
 
+// SearchMapsByID searches for maps by ID across multiple projects using the POST search endpoint
+func (c *Client) SearchMapsByID(projectIDs []string, searchID string) ([]Map, error) {
+	reqBody := map[string]interface{}{
+		"projects":      projectIDs,
+		"searchById":    searchID,
+		"sortOrder":     "DESC",
+		"sortby":        "LASTMODIFIEDDATE",
+		"includeFields": []string{"couchDbId"},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling request: %w", err)
+	}
+
+	endpoint := "/api/v2/data/maps/search?size=10&page=0"
+	body, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var maps []Map
+	if err := json.Unmarshal(result.Results, &maps); err != nil {
+		return nil, fmt.Errorf("parsing maps: %w", err)
+	}
+
+	return maps, nil
+}
+
 // GetTicket returns a single ticket
 func (c *Client) GetTicket(database, ticketID string) (*Ticket, error) {
 	endpoint := fmt.Sprintf("/api/v2/data/tickets/%s/%s", url.PathEscape(database), url.PathEscape(ticketID))
