@@ -22,22 +22,59 @@ type TicketsCmd struct {
 }
 
 type TicketsListCmd struct {
-	Database    string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
-	Status      string `short:"s" enum:"created,started,completed," default:"" help:"Filter by status (created, started, completed)"`
-	Search      string `help:"Search by title"`
-	Responsible string `short:"r" help:"Filter by responsible person email"`
-	Tag         string `short:"t" help:"Filter by tag"`
-	GroupID     string `short:"g" help:"Filter by group ID"`
-	Archived    bool   `short:"a" help:"Include archived tickets"`
-	AllProjects bool   `help:"Include inactive projects when searching all"`
-	Limit       int    `short:"l" default:"50" help:"Maximum number of tickets to return"`
-	Page        int    `short:"p" default:"0" help:"Page number (0-based)"`
-	Sort        string `short:"o" default:"created" enum:"created,modified" help:"Sort by field (created, modified)"`
-	Asc         bool   `help:"Sort in ascending order (oldest first)"`
-	JSON        bool   `short:"j" help:"Output as JSON"`
+	Database       string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
+	Status         string `short:"s" enum:"created,started,completed," default:"" help:"Filter by status (created, started, completed)"`
+	Search         string `help:"Search by title"`
+	Responsible    string `short:"r" help:"Filter by responsible person email"`
+	Tag            string `short:"t" help:"Filter by tag"`
+	GroupID        string `short:"g" help:"Filter by group ID"`
+	Archived       bool   `short:"a" help:"Include archived tickets"`
+	AllProjects    bool   `help:"Include inactive projects when searching all"`
+	Limit          int    `short:"l" default:"50" help:"Maximum number of tickets to return"`
+	Page           int    `short:"p" default:"0" help:"Page number (0-based)"`
+	Sort           string `short:"o" default:"created" enum:"created,modified" help:"Sort by field (created, modified)"`
+	Asc            bool   `help:"Sort in ascending order (oldest first)"`
+	JSON           bool   `short:"j" help:"Output as JSON"`
+	CreatedAfter   string `help:"Show tickets created after this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
+	CreatedBefore  string `help:"Show tickets created before this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
+	ModifiedAfter  string `help:"Show tickets modified after this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
+	ModifiedBefore string `help:"Show tickets modified before this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
 }
 
 func (c *TicketsListCmd) Run(client *api.Client) error {
+	// Parse date filters
+	var filters DateFilterSet
+	if c.CreatedAfter != "" {
+		t, err := ParseRelativeTime(c.CreatedAfter)
+		if err != nil {
+			return fmt.Errorf("--created-after: %w", err)
+		}
+		filters.CreatedAfter = &t
+	}
+	if c.CreatedBefore != "" {
+		t, err := ParseRelativeTime(c.CreatedBefore)
+		if err != nil {
+			return fmt.Errorf("--created-before: %w", err)
+		}
+		filters.CreatedBefore = &t
+	}
+	if c.ModifiedAfter != "" {
+		t, err := ParseRelativeTime(c.ModifiedAfter)
+		if err != nil {
+			return fmt.Errorf("--modified-after: %w", err)
+		}
+		filters.ModifiedAfter = &t
+	}
+	if c.ModifiedBefore != "" {
+		t, err := ParseRelativeTime(c.ModifiedBefore)
+		if err != nil {
+			return fmt.Errorf("--modified-before: %w", err)
+		}
+		filters.ModifiedBefore = &t
+	}
+
+	hasDateFilters := filters.HasDateFilters()
+
 	var allTickets []api.Ticket
 	var total int
 	var limitReached bool
@@ -57,27 +94,78 @@ func (c *TicketsListCmd) Run(client *api.Client) error {
 
 	if c.Database != "" {
 		// Single project query
-		opts := api.ListTicketsOptions{
-			Database:    c.Database,
-			Status:      c.Status,
-			SearchTitle: c.Search,
-			Responsible: c.Responsible,
-			Tag:         c.Tag,
-			GroupID:     c.GroupID,
-			Archived:    c.Archived,
-			Size:        c.Limit,
-			Page:        c.Page,
-			SortBy:      sortBy,
-			SortOrder:   sortOrder,
-		}
+		if hasDateFilters {
+			// Over-fetch and auto-page to fill the requested limit
+			fetchSize := c.Limit * 3
+			if fetchSize > 200 {
+				fetchSize = 200
+			}
+			page := 0
+			for {
+				opts := api.ListTicketsOptions{
+					Database:    c.Database,
+					Status:      c.Status,
+					SearchTitle: c.Search,
+					Responsible: c.Responsible,
+					Tag:         c.Tag,
+					GroupID:     c.GroupID,
+					Archived:    c.Archived,
+					Size:        fetchSize,
+					Page:        page,
+					SortBy:      sortBy,
+					SortOrder:   sortOrder,
+				}
+				tickets, _, err := client.ListTickets(opts)
+				if err != nil {
+					return err
+				}
+				for _, t := range tickets {
+					created := ""
+					modified := ""
+					if t.Dates != nil {
+						created = t.Dates.CreationDate
+						modified = t.Dates.LastModified
+					}
+					if filters.MatchesDates(created, modified) {
+						allTickets = append(allTickets, t)
+						if len(allTickets) >= c.Limit {
+							break
+						}
+					}
+				}
+				if len(allTickets) >= c.Limit || len(tickets) < fetchSize {
+					break
+				}
+				page++
+			}
+			if len(allTickets) > c.Limit {
+				allTickets = allTickets[:c.Limit]
+			}
+			total = len(allTickets)
+			limitReached = len(allTickets) >= c.Limit
+		} else {
+			opts := api.ListTicketsOptions{
+				Database:    c.Database,
+				Status:      c.Status,
+				SearchTitle: c.Search,
+				Responsible: c.Responsible,
+				Tag:         c.Tag,
+				GroupID:     c.GroupID,
+				Archived:    c.Archived,
+				Size:        c.Limit,
+				Page:        c.Page,
+				SortBy:      sortBy,
+				SortOrder:   sortOrder,
+			}
 
-		tickets, t, err := client.ListTickets(opts)
-		if err != nil {
-			return err
+			tickets, t, err := client.ListTickets(opts)
+			if err != nil {
+				return err
+			}
+			allTickets = tickets
+			total = t
+			limitReached = total > c.Limit
 		}
-		allTickets = tickets
-		total = t
-		limitReached = total > c.Limit
 	} else {
 		// Query all active projects
 		showProject = true
@@ -116,11 +204,22 @@ func (c *TicketsListCmd) Run(client *api.Client) error {
 				continue // Skip projects with errors
 			}
 
-			// Track which project each ticket belongs to
+			// Track which project each ticket belongs to and apply date filter
 			for _, t := range tickets {
+				if hasDateFilters {
+					created := ""
+					modified := ""
+					if t.Dates != nil {
+						created = t.Dates.CreationDate
+						modified = t.Dates.LastModified
+					}
+					if !filters.MatchesDates(created, modified) {
+						continue
+					}
+				}
 				ticketProjects[t.CouchDbID] = project.ProjectID
+				allTickets = append(allTickets, t)
 			}
-			allTickets = append(allTickets, tickets...)
 
 			// Stop if we have enough
 			if len(allTickets) >= c.Limit {

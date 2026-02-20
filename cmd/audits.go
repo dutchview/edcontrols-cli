@@ -16,23 +16,60 @@ type AuditsCmd struct {
 }
 
 type AuditsListCmd struct {
-	Database    string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
-	Status      string `short:"s" enum:"started,In Progress,completed," default:"" help:"Filter by status (started, In Progress, completed)"`
-	Template    string `short:"t" help:"Filter by template ID"`
-	Search      string `help:"Search by title"`
-	Auditor     string `short:"a" help:"Filter by auditor email"`
-	GroupID     string `short:"g" help:"Filter by group ID"`
-	Tag         string `help:"Filter by tag"`
-	Archived    bool   `help:"Include archived audits"`
-	AllProjects bool   `help:"Include inactive projects when searching all"`
-	Limit       int    `short:"l" default:"50" help:"Maximum number of audits to return"`
-	Page        int    `short:"p" default:"0" help:"Page number (0-based)"`
-	Sort        string `short:"o" default:"created" enum:"created,modified" help:"Sort by field (created, modified)"`
-	Asc         bool   `help:"Sort in ascending order (oldest first)"`
-	JSON        bool   `short:"j" help:"Output as JSON"`
+	Database       string `arg:"" name:"project-id" optional:"" help:"Project ID (omit to search all active projects)"`
+	Status         string `short:"s" enum:"started,In Progress,completed," default:"" help:"Filter by status (started, In Progress, completed)"`
+	Template       string `short:"t" help:"Filter by template ID"`
+	Search         string `help:"Search by title"`
+	Auditor        string `short:"a" help:"Filter by auditor email"`
+	GroupID        string `short:"g" help:"Filter by group ID"`
+	Tag            string `help:"Filter by tag"`
+	Archived       bool   `help:"Include archived audits"`
+	AllProjects    bool   `help:"Include inactive projects when searching all"`
+	Limit          int    `short:"l" default:"50" help:"Maximum number of audits to return"`
+	Page           int    `short:"p" default:"0" help:"Page number (0-based)"`
+	Sort           string `short:"o" default:"created" enum:"created,modified" help:"Sort by field (created, modified)"`
+	Asc            bool   `help:"Sort in ascending order (oldest first)"`
+	JSON           bool   `short:"j" help:"Output as JSON"`
+	CreatedAfter   string `help:"Show audits created after this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
+	CreatedBefore  string `help:"Show audits created before this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
+	ModifiedAfter  string `help:"Show audits modified after this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
+	ModifiedBefore string `help:"Show audits modified before this time (e.g., 2w, 3d, 1mo, 1y, or 2026-01-15)"`
 }
 
 func (c *AuditsListCmd) Run(client *api.Client) error {
+	// Parse date filters
+	var filters DateFilterSet
+	if c.CreatedAfter != "" {
+		t, err := ParseRelativeTime(c.CreatedAfter)
+		if err != nil {
+			return fmt.Errorf("--created-after: %w", err)
+		}
+		filters.CreatedAfter = &t
+	}
+	if c.CreatedBefore != "" {
+		t, err := ParseRelativeTime(c.CreatedBefore)
+		if err != nil {
+			return fmt.Errorf("--created-before: %w", err)
+		}
+		filters.CreatedBefore = &t
+	}
+	if c.ModifiedAfter != "" {
+		t, err := ParseRelativeTime(c.ModifiedAfter)
+		if err != nil {
+			return fmt.Errorf("--modified-after: %w", err)
+		}
+		filters.ModifiedAfter = &t
+	}
+	if c.ModifiedBefore != "" {
+		t, err := ParseRelativeTime(c.ModifiedBefore)
+		if err != nil {
+			return fmt.Errorf("--modified-before: %w", err)
+		}
+		filters.ModifiedBefore = &t
+	}
+
+	hasDateFilters := filters.HasDateFilters()
+
 	var allAudits []api.Audit
 	var total int
 	var limitReached bool
@@ -52,30 +89,6 @@ func (c *AuditsListCmd) Run(client *api.Client) error {
 	}
 
 	if c.Database != "" {
-		// Single project query
-		opts := api.ListAuditsOptions{
-			Database:    c.Database,
-			Status:      c.Status,
-			Template:    c.Template,
-			SearchTitle: c.Search,
-			Auditor:     c.Auditor,
-			GroupID:     c.GroupID,
-			Tag:         c.Tag,
-			Archived:    c.Archived,
-			Size:        c.Limit,
-			Page:        c.Page,
-			SortBy:      sortBy,
-			SortOrder:   sortOrder,
-		}
-
-		audits, t, err := client.ListAudits(opts)
-		if err != nil {
-			return err
-		}
-		allAudits = audits
-		total = t
-		limitReached = total > c.Limit
-
 		// Fetch templates for this project
 		templates, _, err := client.ListAuditTemplates(api.ListAuditTemplatesOptions{
 			Database: c.Database,
@@ -85,6 +98,82 @@ func (c *AuditsListCmd) Run(client *api.Client) error {
 			for _, t := range templates {
 				templateNames[t.CouchDbID] = t.Name
 			}
+		}
+
+		if hasDateFilters {
+			// Over-fetch and auto-page to fill the requested limit
+			fetchSize := c.Limit * 3
+			if fetchSize > 200 {
+				fetchSize = 200
+			}
+			page := 0
+			for {
+				opts := api.ListAuditsOptions{
+					Database:    c.Database,
+					Status:      c.Status,
+					Template:    c.Template,
+					SearchTitle: c.Search,
+					Auditor:     c.Auditor,
+					GroupID:     c.GroupID,
+					Tag:         c.Tag,
+					Archived:    c.Archived,
+					Size:        fetchSize,
+					Page:        page,
+					SortBy:      sortBy,
+					SortOrder:   sortOrder,
+				}
+				audits, _, err := client.ListAudits(opts)
+				if err != nil {
+					return err
+				}
+				for _, a := range audits {
+					created := ""
+					modified := ""
+					if a.Dates != nil {
+						created = a.Dates.CreationDate
+						modified = a.Dates.LastModified
+					}
+					if filters.MatchesDates(created, modified) {
+						allAudits = append(allAudits, a)
+						if len(allAudits) >= c.Limit {
+							break
+						}
+					}
+				}
+				if len(allAudits) >= c.Limit || len(audits) < fetchSize {
+					break
+				}
+				page++
+			}
+			if len(allAudits) > c.Limit {
+				allAudits = allAudits[:c.Limit]
+			}
+			total = len(allAudits)
+			limitReached = len(allAudits) >= c.Limit
+		} else {
+			// Single project query without date filters
+			opts := api.ListAuditsOptions{
+				Database:    c.Database,
+				Status:      c.Status,
+				Template:    c.Template,
+				SearchTitle: c.Search,
+				Auditor:     c.Auditor,
+				GroupID:     c.GroupID,
+				Tag:         c.Tag,
+				Archived:    c.Archived,
+				Size:        c.Limit,
+				Page:        c.Page,
+				SortBy:      sortBy,
+				SortOrder:   sortOrder,
+			}
+
+			audits, t, err := client.ListAudits(opts)
+			if err != nil {
+				return err
+			}
+			allAudits = audits
+			total = t
+			limitReached = total > c.Limit
 		}
 	} else {
 		// Query all active projects
@@ -125,11 +214,22 @@ func (c *AuditsListCmd) Run(client *api.Client) error {
 				continue // Skip projects with errors
 			}
 
-			// Track which project each audit belongs to
+			// Track which project each audit belongs to and apply date filter
 			for _, a := range audits {
+				if hasDateFilters {
+					created := ""
+					modified := ""
+					if a.Dates != nil {
+						created = a.Dates.CreationDate
+						modified = a.Dates.LastModified
+					}
+					if !filters.MatchesDates(created, modified) {
+						continue
+					}
+				}
 				auditProjects[a.CouchDbID] = project.ProjectID
+				allAudits = append(allAudits, a)
 			}
-			allAudits = append(allAudits, audits...)
 
 			// Fetch templates for this project
 			templates, _, err := client.ListAuditTemplates(api.ListAuditTemplatesOptions{
