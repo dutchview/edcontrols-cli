@@ -24,7 +24,8 @@ type FilesCmd struct {
 }
 
 type FileGroupsCmd struct {
-	List FileGroupsListCmd `cmd:"" help:"List file groups"`
+	List   FileGroupsListCmd   `cmd:"" help:"List file groups"`
+	Create FileGroupsCreateCmd `cmd:"" help:"Create a new file group"`
 }
 
 type FileGroupsListCmd struct {
@@ -77,6 +78,30 @@ func (c *FileGroupsListCmd) Run(client *api.Client) error {
 	w.Flush()
 	fmt.Printf("\nTotal: %d file groups\n", total)
 
+	return nil
+}
+
+type FileGroupsCreateCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	Name     string `arg:"" help:"Name for the new file group"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *FileGroupsCreateCmd) Run(client *api.Client) error {
+	groupID, err := client.CreateFileGroup(c.Database, c.Name)
+	if err != nil {
+		return fmt.Errorf("creating file group: %w", err)
+	}
+
+	if c.JSON {
+		return printJSON(map[string]string{
+			"id":   groupID,
+			"name": c.Name,
+		})
+	}
+
+	fmt.Printf("File group '%s' created.\n", c.Name)
+	fmt.Printf("ID: %s\n", groupID)
 	return nil
 }
 

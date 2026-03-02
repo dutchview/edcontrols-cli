@@ -25,7 +25,7 @@ var CLI struct {
 	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get, create from template)"`
 	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create, update, publish, unpublish) and groups (list, create)"`
 	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps/drawings (list, get, add, delete, tags) and groups (list)"`
-	Files     cmd.FilesCmd     `cmd:"" help:"Manage files (list, get, add, download, archive, unarchive, delete, tags, to-map) and groups (list)"`
+	Files     cmd.FilesCmd     `cmd:"" help:"Manage files (list, get, add, download, archive, unarchive, delete, tags, to-map) and groups (list, create)"`
 	Configure ConfigureCmd     `cmd:"" help:"Show configuration help and setup instructions"`
 }
 
