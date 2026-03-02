@@ -173,6 +173,7 @@ type TicketDates struct {
 // Ticket represents an EdControls ticket
 type Ticket struct {
 	ID           string         `json:"id"`
+	CouchID      string         `json:"_id,omitempty"`
 	CouchDbID    string         `json:"couchDbId,omitempty"`
 	Content      *TicketContent `json:"content,omitempty"`
 	State        *TicketState   `json:"state,omitempty"`
@@ -579,9 +580,9 @@ func (c *Client) SearchMapsByID(projectIDs []string, searchID string) ([]Map, er
 	return maps, nil
 }
 
-// GetTicket returns a single ticket
+// GetTicket returns a single ticket via the securedata endpoint (raw CouchDB document)
 func (c *Client) GetTicket(database, ticketID string) (*Ticket, error) {
-	endpoint := fmt.Sprintf("/api/v2/data/tickets/%s/%s", url.PathEscape(database), url.PathEscape(ticketID))
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(ticketID))
 	body, err := c.doRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -590,6 +591,11 @@ func (c *Client) GetTicket(database, ticketID string) (*Ticket, error) {
 	var ticket Ticket
 	if err := json.Unmarshal(body, &ticket); err != nil {
 		return nil, fmt.Errorf("parsing response: %w", err)
+	}
+
+	// Set CouchDbID from CouchID (_id) if not set
+	if ticket.CouchDbID == "" && ticket.CouchID != "" {
+		ticket.CouchDbID = ticket.CouchID
 	}
 
 	return &ticket, nil
@@ -786,6 +792,36 @@ func (c *Client) CreateAudit(database, templateID string, opts CreateAuditOption
 	}
 
 	return &audit, nil
+}
+
+// UpdateAudit updates an existing audit via the securedata endpoint.
+// It fetches the current document, applies the updates map, and PUTs it back.
+func (c *Client) UpdateAudit(database, auditID string, updates map[string]interface{}) error {
+	// First, get the current document
+	getEndpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(auditID))
+	body, err := c.doRequest("GET", getEndpoint, nil)
+	if err != nil {
+		return fmt.Errorf("fetching audit: %w", err)
+	}
+
+	var doc map[string]interface{}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return fmt.Errorf("parsing audit: %w", err)
+	}
+
+	// Apply updates
+	for k, v := range updates {
+		doc[k] = v
+	}
+
+	// PUT the updated document
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshaling audit: %w", err)
+	}
+
+	_, err = c.doRequest("PUT", getEndpoint, strings.NewReader(string(jsonBody)))
+	return err
 }
 
 // ListAuditTemplatesOptions contains options for listing audit templates

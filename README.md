@@ -126,8 +126,7 @@ done
 The easiest way to install on macOS:
 
 ```bash
-brew tap dutchview/tap
-brew install ec
+brew install dutchview/tap/ec
 ```
 
 To upgrade to the latest version:

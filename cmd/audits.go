@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -13,6 +14,7 @@ type AuditsCmd struct {
 	List   AuditsListCmd   `cmd:"" help:"List audits"`
 	Get    AuditsGetCmd    `cmd:"" help:"Get audit details"`
 	Create AuditsCreateCmd `cmd:"" help:"Create an audit from a template"`
+	Update AuditsUpdateCmd `cmd:"" help:"Update an existing audit"`
 }
 
 type AuditsListCmd struct {
@@ -551,5 +553,81 @@ func (c *AuditsCreateCmd) Run(client *api.Client) error {
 	fmt.Printf("Name: %s\n", audit.Name)
 	fmt.Printf("Status: %s\n", statusString(audit.Status))
 
+	return nil
+}
+
+type AuditsUpdateCmd struct {
+	AuditID       string   `arg:"" help:"Audit ID (human ID like '708739' or full CouchDB ID)"`
+	Database      string   `short:"p" name:"project" help:"Project ID (optional, will search if not provided)"`
+	Name          string   `short:"n" help:"New audit name"`
+	Tags          []string `short:"t" help:"Set tags (replaces existing tags, can be specified multiple times)"`
+	QuestionsFile string   `short:"q" name:"questions-file" help:"Path to JSON file containing the questions array"`
+	Maps          []string `short:"m" help:"Set map IDs (replaces existing maps, can be specified multiple times)"`
+	JSON          bool     `short:"j" help:"Output as JSON"`
+}
+
+func (c *AuditsUpdateCmd) Run(client *api.Client) error {
+	database := c.Database
+	auditID := c.AuditID
+
+	// If the audit ID looks like a human ID (6 chars or less), search for it
+	isHumanID := len(c.AuditID) <= 6
+	if isHumanID {
+		var searchDB string
+		if c.Database != "" {
+			searchDB = c.Database
+		}
+		foundDB, foundID, err := findAuditByHumanID(client, c.AuditID, searchDB)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+		auditID = foundID
+	}
+
+	updates := make(map[string]interface{})
+
+	if c.Name != "" {
+		updates["name"] = c.Name
+	}
+
+	if len(c.Tags) > 0 {
+		updates["tags"] = c.Tags
+	}
+
+	if len(c.Maps) > 0 {
+		updates["maps"] = c.Maps
+	}
+
+	if c.QuestionsFile != "" {
+		data, err := os.ReadFile(c.QuestionsFile)
+		if err != nil {
+			return fmt.Errorf("reading questions file: %w", err)
+		}
+		var questions interface{}
+		if err := json.Unmarshal(data, &questions); err != nil {
+			return fmt.Errorf("parsing questions JSON: %w", err)
+		}
+		updates["questions"] = questions
+	}
+
+	if len(updates) == 0 {
+		return fmt.Errorf("no updates specified (use --name, --tags, --questions-file, or --maps)")
+	}
+
+	if err := client.UpdateAudit(database, auditID, updates); err != nil {
+		return err
+	}
+
+	if c.JSON {
+		// Fetch and return the updated document
+		doc, err := client.GetDocument(database, auditID)
+		if err != nil {
+			return err
+		}
+		return printJSON(doc)
+	}
+
+	fmt.Printf("Audit %s updated successfully.\n", humanID(auditID))
 	return nil
 }
