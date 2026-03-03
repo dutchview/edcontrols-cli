@@ -972,6 +972,75 @@ ec templates groups create nl_company_abc123 "Safety Templates" -j
 |------|-------------|
 | `-j, --json` | Output as JSON |
 
+#### templates groups get
+
+Get details for a template group.
+
+```bash
+# Get template group details
+ec templates groups get nl_company_abc123 group-id-here
+
+# Output as JSON
+ec templates groups get nl_company_abc123 group-id-here -j
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
+
+#### templates groups update
+
+Update a template group.
+
+```bash
+# Rename a template group
+ec templates groups update nl_company_abc123 group-id-here -n "New Group Name"
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-n, --name=STRING` | New name for the template group |
+
+#### templates groups archive
+
+Archive a template group.
+
+```bash
+ec templates groups archive nl_company_abc123 group-id-here
+```
+
+#### templates groups unarchive
+
+Unarchive a template group.
+
+```bash
+ec templates groups unarchive nl_company_abc123 group-id-here
+```
+
+#### templates groups delete
+
+Soft-delete a template group. Fails if any audit templates are still bound to the group.
+
+```bash
+ec templates groups delete nl_company_abc123 group-id-here
+```
+
+**Notes:**
+- Cannot delete a group that still has audit templates (move or delete templates first)
+- This is a soft delete - use `templates groups undelete` to restore
+
+#### templates groups undelete
+
+Restore a soft-deleted template group.
+
+```bash
+ec templates groups undelete nl_company_abc123 group-id-here
+```
+
 ---
 
 ### maps

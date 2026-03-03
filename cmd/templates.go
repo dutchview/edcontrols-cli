@@ -19,8 +19,14 @@ type TemplatesCmd struct {
 }
 
 type TemplateGroupsCmd struct {
-	List   TemplateGroupsListCmd   `cmd:"" help:"List template groups"`
-	Create TemplateGroupsCreateCmd `cmd:"" help:"Create a new template group"`
+	List      TemplateGroupsListCmd      `cmd:"" help:"List template groups"`
+	Get       TemplateGroupsGetCmd       `cmd:"" help:"Get template group details"`
+	Create    TemplateGroupsCreateCmd    `cmd:"" help:"Create a new template group"`
+	Update    TemplateGroupsUpdateCmd    `cmd:"" help:"Update a template group"`
+	Archive   TemplateGroupsArchiveCmd   `cmd:"" help:"Archive a template group"`
+	Unarchive TemplateGroupsUnarchiveCmd `cmd:"" help:"Unarchive a template group"`
+	Delete    TemplateGroupsDeleteCmd    `cmd:"" help:"Delete a template group (soft delete)"`
+	Undelete  TemplateGroupsUndeleteCmd  `cmd:"" help:"Restore a deleted template group"`
 }
 
 type TemplateGroupsListCmd struct {
@@ -97,6 +103,131 @@ func (c *TemplateGroupsCreateCmd) Run(client *api.Client) error {
 
 	fmt.Printf("Template group '%s' created.\n", c.Name)
 	fmt.Printf("ID: %s\n", groupID)
+	return nil
+}
+
+type TemplateGroupsGetCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	GroupID  string `arg:"" help:"Template group ID"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *TemplateGroupsGetCmd) Run(client *api.Client) error {
+	if c.JSON {
+		doc, err := client.GetDocument(c.Database, c.GroupID)
+		if err != nil {
+			return err
+		}
+		return printJSON(doc)
+	}
+
+	group, err := client.GetTemplateGroup(c.Database, c.GroupID)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Template Group: %s\n", group.Name)
+	groupID := group.CouchDbID
+	if groupID == "" {
+		groupID = group.CouchID
+	}
+	if groupID == "" {
+		groupID = group.ID
+	}
+	fmt.Printf("ID: %s\n", groupID)
+
+	return nil
+}
+
+type TemplateGroupsUpdateCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	GroupID  string `arg:"" help:"Template group ID"`
+	Name     string `short:"n" help:"New name for the template group"`
+}
+
+func (c *TemplateGroupsUpdateCmd) Run(client *api.Client) error {
+	updates := make(map[string]interface{})
+
+	if c.Name != "" {
+		updates["name"] = c.Name
+	}
+
+	if len(updates) == 0 {
+		return fmt.Errorf("no updates specified (use -n to set name)")
+	}
+
+	if err := client.UpdateTemplateGroup(c.Database, c.GroupID, updates); err != nil {
+		return err
+	}
+
+	fmt.Printf("Template group %s updated successfully.\n", c.GroupID)
+	return nil
+}
+
+type TemplateGroupsArchiveCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	GroupID  string `arg:"" help:"Template group ID"`
+}
+
+func (c *TemplateGroupsArchiveCmd) Run(client *api.Client) error {
+	if err := client.ArchiveTemplateGroup(c.Database, c.GroupID, true); err != nil {
+		return fmt.Errorf("archiving template group: %w", err)
+	}
+	fmt.Printf("Template group %s archived.\n", c.GroupID)
+	return nil
+}
+
+type TemplateGroupsUnarchiveCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	GroupID  string `arg:"" help:"Template group ID"`
+}
+
+func (c *TemplateGroupsUnarchiveCmd) Run(client *api.Client) error {
+	if err := client.ArchiveTemplateGroup(c.Database, c.GroupID, false); err != nil {
+		return fmt.Errorf("unarchiving template group: %w", err)
+	}
+	fmt.Printf("Template group %s unarchived.\n", c.GroupID)
+	return nil
+}
+
+type TemplateGroupsDeleteCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	GroupID  string `arg:"" help:"Template group ID"`
+}
+
+func (c *TemplateGroupsDeleteCmd) Run(client *api.Client) error {
+	// Check for templates bound to this group (including archived)
+	templates, _, err := client.ListAuditTemplates(api.ListAuditTemplatesOptions{
+		Database: c.Database,
+		GroupID:  c.GroupID,
+		Archived: true,
+		Size:     1,
+	})
+	if err != nil {
+		return fmt.Errorf("checking templates: %w", err)
+	}
+	if len(templates) > 0 {
+		return fmt.Errorf("cannot delete: template group still has audit templates bound to it (e.g. %q)", templates[0].Name)
+	}
+
+	if err := client.DeleteTemplateGroup(c.Database, c.GroupID, true); err != nil {
+		return fmt.Errorf("deleting template group: %w", err)
+	}
+
+	fmt.Printf("Template group %s deleted.\n", c.GroupID)
+	return nil
+}
+
+type TemplateGroupsUndeleteCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	GroupID  string `arg:"" help:"Template group ID"`
+}
+
+func (c *TemplateGroupsUndeleteCmd) Run(client *api.Client) error {
+	if err := client.DeleteTemplateGroup(c.Database, c.GroupID, false); err != nil {
+		return fmt.Errorf("restoring template group: %w", err)
+	}
+	fmt.Printf("Template group %s restored.\n", c.GroupID)
 	return nil
 }
 

@@ -2363,6 +2363,62 @@ func (c *Client) CreateTemplateGroup(database, name string) (string, error) {
 	return resp.ID, nil
 }
 
+// UpdateTemplateGroup updates a template group's fields
+func (c *Client) UpdateTemplateGroup(database, groupID string, updates map[string]interface{}) error {
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s", url.PathEscape(database), url.PathEscape(groupID))
+	body, err := c.doRequest("GET", endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("fetching template group: %w", err)
+	}
+
+	var doc map[string]interface{}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return fmt.Errorf("parsing template group: %w", err)
+	}
+
+	for k, v := range updates {
+		doc[k] = v
+	}
+
+	jsonBody, err := json.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshaling template group: %w", err)
+	}
+
+	_, err = c.doRequest("PUT", endpoint, strings.NewReader(string(jsonBody)))
+	return err
+}
+
+// DeleteTemplateGroup soft-deletes a template group by setting the deleted field to a timestamp
+func (c *Client) DeleteTemplateGroup(database, groupID string, deleted bool) error {
+	now := time.Now().UTC()
+	timestamp := now.Format("2006-01-02T15:04:05.000Z")
+
+	updates := map[string]interface{}{}
+	if deleted {
+		updates["deleted"] = timestamp
+	} else {
+		updates["deleted"] = nil
+	}
+
+	return c.UpdateTemplateGroup(database, groupID, updates)
+}
+
+// ArchiveTemplateGroup archives or unarchives a template group
+func (c *Client) ArchiveTemplateGroup(database, groupID string, archive bool) error {
+	now := time.Now().UTC()
+	timestamp := now.Format("2006-01-02T15:04:05.000Z")
+
+	updates := map[string]interface{}{}
+	if archive {
+		updates["archived"] = timestamp
+	} else {
+		updates["archived"] = nil
+	}
+
+	return c.UpdateTemplateGroup(database, groupID, updates)
+}
+
 // CreateFileGroup creates a new file group
 func (c *Client) CreateFileGroup(database, name string) (string, error) {
 	email, err := c.Email()
