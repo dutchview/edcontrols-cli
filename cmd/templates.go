@@ -219,11 +219,12 @@ func (c *TemplatesGetCmd) Run(client *api.Client) error {
 }
 
 type TemplatesCreateCmd struct {
-	Database string   `arg:"" name:"project-id" help:"Project ID"`
-	GroupID  string   `arg:"" help:"Template group ID"`
-	Name     string   `arg:"" help:"Template name"`
-	Tags     []string `short:"t" help:"Tags to add (can be specified multiple times)"`
-	JSON     bool     `short:"j" help:"Output as JSON"`
+	Database      string   `arg:"" name:"project-id" help:"Project ID"`
+	GroupID       string   `arg:"" help:"Template group ID"`
+	Name          string   `arg:"" help:"Template name"`
+	Tags          []string `short:"t" help:"Tags to add (can be specified multiple times)"`
+	QuestionsFile string   `short:"q" name:"questions-file" help:"Path to a JSON file containing template questions"`
+	JSON          bool     `short:"j" help:"Output as JSON"`
 }
 
 func (c *TemplatesCreateCmd) Run(client *api.Client) error {
@@ -232,6 +233,14 @@ func (c *TemplatesCreateCmd) Run(client *api.Client) error {
 		GroupID:  c.GroupID,
 		Name:     c.Name,
 		Tags:     c.Tags,
+	}
+
+	if c.QuestionsFile != "" {
+		questions, err := api.LoadAndValidateQuestionsFile(c.QuestionsFile)
+		if err != nil {
+			return fmt.Errorf("loading questions file: %w", err)
+		}
+		opts.Questions = questions
 	}
 
 	templateID, err := client.CreateAuditTemplate(opts)
@@ -253,11 +262,12 @@ func (c *TemplatesCreateCmd) Run(client *api.Client) error {
 }
 
 type TemplatesUpdateCmd struct {
-	Database    string   `arg:"" name:"project-id" help:"Project ID"`
-	TemplateID  string   `arg:"" help:"Template ID"`
-	Name        string   `short:"n" help:"New template name"`
-	Description string   `short:"d" help:"New description"`
-	Tags        []string `short:"t" help:"Tags to set (replaces existing)"`
+	Database      string   `arg:"" name:"project-id" help:"Project ID"`
+	TemplateID    string   `arg:"" help:"Template ID"`
+	Name          string   `short:"n" help:"New template name"`
+	Description   string   `short:"d" help:"New description"`
+	Tags          []string `short:"t" help:"Tags to set (replaces existing)"`
+	QuestionsFile string   `short:"q" name:"questions-file" help:"Path to a JSON file containing template questions"`
 }
 
 func (c *TemplatesUpdateCmd) Run(client *api.Client) error {
@@ -272,9 +282,16 @@ func (c *TemplatesUpdateCmd) Run(client *api.Client) error {
 	if len(c.Tags) > 0 {
 		updates["tags"] = c.Tags
 	}
+	if c.QuestionsFile != "" {
+		questions, err := api.LoadAndValidateQuestionsFile(c.QuestionsFile)
+		if err != nil {
+			return fmt.Errorf("loading questions file: %w", err)
+		}
+		updates["questions"] = questions
+	}
 
 	if len(updates) == 0 {
-		return fmt.Errorf("no updates specified")
+		return fmt.Errorf("no updates specified (use -n, -d, -t, or -q)")
 	}
 
 	if err := client.UpdateAuditTemplate(c.Database, c.TemplateID, updates); err != nil {

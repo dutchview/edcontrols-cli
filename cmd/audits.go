@@ -11,10 +11,11 @@ import (
 )
 
 type AuditsCmd struct {
-	List   AuditsListCmd   `cmd:"" help:"List audits"`
-	Get    AuditsGetCmd    `cmd:"" help:"Get audit details"`
-	Create AuditsCreateCmd `cmd:"" help:"Create an audit from a template"`
-	Update AuditsUpdateCmd `cmd:"" help:"Update an existing audit"`
+	List        AuditsListCmd        `cmd:"" help:"List audits"`
+	Get         AuditsGetCmd         `cmd:"" help:"Get audit details"`
+	Create      AuditsCreateCmd      `cmd:"" help:"Create an audit from a template"`
+	Update      AuditsUpdateCmd      `cmd:"" help:"Update an existing audit"`
+	Attachments AuditAttachmentsCmd  `cmd:"" help:"List or download audit attachments (photos)"`
 }
 
 type AuditsListCmd struct {
@@ -630,4 +631,103 @@ func (c *AuditsUpdateCmd) Run(client *api.Client) error {
 
 	fmt.Printf("Audit %s updated successfully.\n", humanID(auditID))
 	return nil
+}
+
+// --- Audit Attachments ---
+
+type AuditAttachmentsCmd struct {
+	List     AuditAttachmentsListCmd     `cmd:"" help:"List attachments on an audit"`
+	Download AuditAttachmentsDownloadCmd `cmd:"" help:"Download attachments from an audit"`
+}
+
+type AuditAttachmentsListCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	AuditID  string `arg:"" help:"Audit ID (human ID or full CouchDB ID)"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *AuditAttachmentsListCmd) Run(client *api.Client) error {
+	database := c.Database
+	auditID := c.AuditID
+
+	if len(c.AuditID) <= 6 {
+		foundDB, foundID, err := findAuditByHumanID(client, c.AuditID, c.Database)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+		auditID = foundID
+	}
+
+	doc, err := client.GetDocument(database, auditID)
+	if err != nil {
+		return fmt.Errorf("getting audit: %w", err)
+	}
+
+	attachments := extractAttachments(doc)
+	if len(attachments) == 0 {
+		fmt.Println("No attachments found.")
+		return nil
+	}
+
+	if c.JSON {
+		return printJSON(attachments)
+	}
+
+	printAttachmentsTable(attachments)
+	return nil
+}
+
+type AuditAttachmentsDownloadCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	AuditID  string `arg:"" help:"Audit ID (human ID or full CouchDB ID)"`
+	Name     string `arg:"" optional:"" help:"Attachment filename to download"`
+	All      bool   `help:"Download all attachments"`
+	Output   string `short:"o" help:"Output path (file path for single download, directory for --all)"`
+}
+
+func (c *AuditAttachmentsDownloadCmd) Run(client *api.Client) error {
+	if c.Name == "" && !c.All {
+		return fmt.Errorf("specify an attachment name or use --all to download all attachments")
+	}
+
+	database := c.Database
+	auditID := c.AuditID
+
+	if len(c.AuditID) <= 6 {
+		foundDB, foundID, err := findAuditByHumanID(client, c.AuditID, c.Database)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+		auditID = foundID
+	}
+
+	doc, err := client.GetDocument(database, auditID)
+	if err != nil {
+		return fmt.Errorf("getting audit: %w", err)
+	}
+
+	attachments := extractAttachments(doc)
+	if len(attachments) == 0 {
+		return fmt.Errorf("no attachments found on this audit")
+	}
+
+	if c.All {
+		return downloadAllAttachments(client, database, auditID, attachments, c.Output)
+	}
+
+	// Verify the requested attachment exists
+	found := false
+	for _, a := range attachments {
+		if a.Name == c.Name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("attachment %q not found on this audit", c.Name)
+	}
+
+	return downloadAttachment(client, database, auditID, c.Name, c.Output)
 }

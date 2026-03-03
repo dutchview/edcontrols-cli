@@ -2167,6 +2167,41 @@ func (c *Client) DownloadFile(database, fileID, versionID, fileName string) ([]b
 	return data, nil
 }
 
+// DownloadAttachment downloads a CouchDB attachment and returns its contents
+func (c *Client) DownloadAttachment(database, docID, attachmentName string) ([]byte, error) {
+	endpoint := fmt.Sprintf("/api/v1/securedata/%s/%s/%s",
+		url.PathEscape(database),
+		url.PathEscape(docID),
+		url.PathEscape(attachmentName))
+
+	reqURL := baseURL + endpoint
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "*/*")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("executing request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("download failed (%d): %s", resp.StatusCode, string(respBody))
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+
+	return data, nil
+}
+
 // ArchiveTicket archives or unarchives a ticket
 func (c *Client) ArchiveTicket(database, ticketID string, archive bool) error {
 	// Get the current document
@@ -2384,10 +2419,11 @@ func (c *Client) CreateFileGroup(database, name string) (string, error) {
 
 // CreateAuditTemplateOptions contains options for creating an audit template
 type CreateAuditTemplateOptions struct {
-	Database string
-	GroupID  string
-	Name     string
-	Tags     []string
+	Database  string
+	GroupID   string
+	Name      string
+	Tags      []string
+	Questions []TemplateCategory
 }
 
 // CreateAuditTemplate creates a new audit template in a template group
@@ -2418,6 +2454,21 @@ func (c *Client) CreateAuditTemplate(opts CreateAuditTemplateOptions) (string, e
 		tags = []string{}
 	}
 
+	var questions interface{}
+	if len(opts.Questions) > 0 {
+		questions = opts.Questions
+	} else {
+		questions = []map[string]interface{}{
+			{
+				"categoryName": "Questions",
+				"questions":    []interface{}{},
+				"settings": map[string]interface{}{
+					"duplicate": false,
+				},
+			},
+		}
+	}
+
 	doc := map[string]interface{}{
 		"_attachments": map[string]interface{}{},
 		"archived":     nil,
@@ -2439,16 +2490,8 @@ func (c *Client) CreateAuditTemplate(opts CreateAuditTemplateOptions) (string, e
 			"type":     "IB.EdBundle.Document.Participants",
 			"informed": []interface{}{},
 		},
-		"project": project.CouchDbID,
-		"questions": []map[string]interface{}{
-			{
-				"categoryName": "Questions",
-				"questions":    []interface{}{},
-				"settings": map[string]interface{}{
-					"duplicate": false,
-				},
-			},
-		},
+		"project":   project.CouchDbID,
+		"questions": questions,
 		"versionInfo": map[string]interface{}{},
 		"timeline":    []interface{}{},
 		"lastmodifier": map[string]string{

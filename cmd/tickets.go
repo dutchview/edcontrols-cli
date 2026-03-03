@@ -3,6 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -10,15 +13,16 @@ import (
 )
 
 type TicketsCmd struct {
-	List      TicketsListCmd      `cmd:"" help:"List tickets"`
-	Get       TicketsGetCmd       `cmd:"" help:"Get ticket details"`
-	Update    TicketsUpdateCmd    `cmd:"" help:"Update ticket fields (-t title, -d description, --due-date, --clear-due, -r responsible, --clear-responsible, --complete, -m comment)"`
-	Assign    TicketsAssignCmd    `cmd:"" help:"Assign a ticket to someone"`
-	Open      TicketsOpenCmd      `cmd:"" help:"Reopen a ticket (set status to created)"`
-	Close     TicketsCloseCmd     `cmd:"" help:"Close a ticket (set status to completed)"`
-	Archive   TicketsArchiveCmd   `cmd:"" help:"Archive a ticket"`
-	Unarchive TicketsUnarchiveCmd `cmd:"" help:"Unarchive a ticket"`
-	Delete    TicketsDeleteCmd    `cmd:"" help:"Delete a ticket"`
+	List        TicketsListCmd        `cmd:"" help:"List tickets"`
+	Get         TicketsGetCmd         `cmd:"" help:"Get ticket details"`
+	Update      TicketsUpdateCmd      `cmd:"" help:"Update ticket fields (-t title, -d description, --due-date, --clear-due, -r responsible, --clear-responsible, --complete, -m comment)"`
+	Assign      TicketsAssignCmd      `cmd:"" help:"Assign a ticket to someone"`
+	Open        TicketsOpenCmd        `cmd:"" help:"Reopen a ticket (set status to created)"`
+	Close       TicketsCloseCmd       `cmd:"" help:"Close a ticket (set status to completed)"`
+	Archive     TicketsArchiveCmd     `cmd:"" help:"Archive a ticket"`
+	Unarchive   TicketsUnarchiveCmd   `cmd:"" help:"Unarchive a ticket"`
+	Delete      TicketsDeleteCmd      `cmd:"" help:"Delete a ticket"`
+	Attachments TicketAttachmentsCmd  `cmd:"" help:"List or download ticket attachments (photos)"`
 }
 
 type TicketsListCmd struct {
@@ -673,5 +677,215 @@ func (c *TicketsDeleteCmd) Run(client *api.Client) error {
 		return fmt.Errorf("deleting ticket: %w", err)
 	}
 	fmt.Printf("Ticket %s deleted.\n", c.TicketID)
+	return nil
+}
+
+// --- Ticket Attachments ---
+
+type TicketAttachmentsCmd struct {
+	List     TicketAttachmentsListCmd     `cmd:"" help:"List attachments on a ticket"`
+	Download TicketAttachmentsDownloadCmd `cmd:"" help:"Download attachments from a ticket"`
+}
+
+type TicketAttachmentsListCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	TicketID string `arg:"" help:"Ticket ID (human ID or full CouchDB ID)"`
+	JSON     bool   `short:"j" help:"Output as JSON"`
+}
+
+func (c *TicketAttachmentsListCmd) Run(client *api.Client) error {
+	database := c.Database
+	ticketID := c.TicketID
+
+	if len(c.TicketID) <= 6 {
+		foundDB, foundID, err := findTicketByHumanID(client, c.TicketID, c.Database)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+		ticketID = foundID
+	}
+
+	doc, err := client.GetDocument(database, ticketID)
+	if err != nil {
+		return fmt.Errorf("getting ticket: %w", err)
+	}
+
+	attachments := extractAttachments(doc)
+	if len(attachments) == 0 {
+		fmt.Println("No attachments found.")
+		return nil
+	}
+
+	if c.JSON {
+		return printJSON(attachments)
+	}
+
+	printAttachmentsTable(attachments)
+	return nil
+}
+
+type TicketAttachmentsDownloadCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	TicketID string `arg:"" help:"Ticket ID (human ID or full CouchDB ID)"`
+	Name     string `arg:"" optional:"" help:"Attachment filename to download"`
+	All      bool   `help:"Download all attachments"`
+	Output   string `short:"o" help:"Output path (file path for single download, directory for --all)"`
+}
+
+func (c *TicketAttachmentsDownloadCmd) Run(client *api.Client) error {
+	if c.Name == "" && !c.All {
+		return fmt.Errorf("specify an attachment name or use --all to download all attachments")
+	}
+
+	database := c.Database
+	ticketID := c.TicketID
+
+	if len(c.TicketID) <= 6 {
+		foundDB, foundID, err := findTicketByHumanID(client, c.TicketID, c.Database)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+		ticketID = foundID
+	}
+
+	doc, err := client.GetDocument(database, ticketID)
+	if err != nil {
+		return fmt.Errorf("getting ticket: %w", err)
+	}
+
+	attachments := extractAttachments(doc)
+	if len(attachments) == 0 {
+		return fmt.Errorf("no attachments found on this ticket")
+	}
+
+	if c.All {
+		return downloadAllAttachments(client, database, ticketID, attachments, c.Output)
+	}
+
+	// Verify the requested attachment exists
+	found := false
+	for _, a := range attachments {
+		if a.Name == c.Name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("attachment %q not found on this ticket", c.Name)
+	}
+
+	return downloadAttachment(client, database, ticketID, c.Name, c.Output)
+}
+
+// --- Shared attachment helpers ---
+
+var thumbnailPattern = regexp.MustCompile(`\.\d+x\d+\.`)
+
+type attachmentInfo struct {
+	Name        string `json:"name"`
+	ContentType string `json:"content_type"`
+	Length      int64  `json:"length"`
+	Thumbnail   bool   `json:"thumbnail"`
+}
+
+func extractAttachments(doc map[string]interface{}) []attachmentInfo {
+	raw, ok := doc["_attachments"]
+	if !ok {
+		return nil
+	}
+	attMap, ok := raw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	var result []attachmentInfo
+	for name, val := range attMap {
+		info := attachmentInfo{Name: name, Thumbnail: thumbnailPattern.MatchString(name)}
+		if m, ok := val.(map[string]interface{}); ok {
+			if ct, ok := m["content_type"].(string); ok {
+				info.ContentType = ct
+			}
+			if l, ok := m["length"].(float64); ok {
+				info.Length = int64(l)
+			}
+		}
+		result = append(result, info)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		// Non-thumbnails first, then by name
+		if result[i].Thumbnail != result[j].Thumbnail {
+			return !result[i].Thumbnail
+		}
+		return result[i].Name < result[j].Name
+	})
+
+	return result
+}
+
+func printAttachmentsTable(attachments []attachmentInfo) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "NAME\tTYPE\tSIZE\tTHUMBNAIL")
+	fmt.Fprintln(w, "----\t----\t----\t---------")
+	for _, a := range attachments {
+		thumb := ""
+		if a.Thumbnail {
+			thumb = "yes"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", a.Name, a.ContentType, formatFileSize(a.Length), thumb)
+	}
+	w.Flush()
+	fmt.Printf("\nTotal: %d attachments\n", len(attachments))
+}
+
+func downloadAttachment(client *api.Client, database, docID, name, output string) error {
+	data, err := client.DownloadAttachment(database, docID, name)
+	if err != nil {
+		return fmt.Errorf("downloading attachment: %w", err)
+	}
+
+	outPath := output
+	if outPath == "" {
+		outPath = name
+	}
+
+	if err := os.WriteFile(outPath, data, 0644); err != nil {
+		return fmt.Errorf("writing file: %w", err)
+	}
+
+	fmt.Printf("Downloaded %s (%s)\n", outPath, formatFileSize(int64(len(data))))
+	return nil
+}
+
+func downloadAllAttachments(client *api.Client, database, docID string, attachments []attachmentInfo, outputDir string) error {
+	if outputDir == "" {
+		outputDir = "."
+	}
+
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("creating output directory: %w", err)
+	}
+
+	downloaded := 0
+	for _, a := range attachments {
+		outPath := filepath.Join(outputDir, a.Name)
+		data, err := client.DownloadAttachment(database, docID, a.Name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error downloading %s: %v\n", a.Name, err)
+			continue
+		}
+
+		if err := os.WriteFile(outPath, data, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", outPath, err)
+			continue
+		}
+
+		fmt.Printf("Downloaded %s (%s)\n", outPath, formatFileSize(int64(len(data))))
+		downloaded++
+	}
+
+	fmt.Printf("\nDownloaded %d/%d attachments\n", downloaded, len(attachments))
 	return nil
 }

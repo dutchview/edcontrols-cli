@@ -564,6 +564,62 @@ Permanently delete a ticket.
 ec tickets delete nl_company_abc123 ticket-id-here
 ```
 
+#### tickets attachments list
+
+List all attachments (photos) on a ticket. Shows filename, content type, size, and whether it's a thumbnail.
+
+```bash
+# List attachments on a ticket
+ec tickets attachments list nl_company_abc123 ticket-id-here
+
+# Use human ID
+ec tickets attachments list nl_company_abc123 CC455B
+
+# Output as JSON
+ec tickets attachments list nl_company_abc123 CC455B -j
+```
+
+**Output:**
+```
+NAME                           TYPE         SIZE      THUMBNAIL
+----                           ----         ----      ---------
+20260303-112330.webp           image/webp   31.8 KB
+20260303-112330.256x192.webp   image/webp   5.2 KB    yes
+
+Total: 2 attachments
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
+
+#### tickets attachments download
+
+Download one or all attachments from a ticket.
+
+```bash
+# Download a specific attachment
+ec tickets attachments download nl_company_abc123 ticket-id-here 20260303-112330.webp
+
+# Download to a custom path
+ec tickets attachments download nl_company_abc123 ticket-id-here 20260303-112330.webp -o photo.webp
+
+# Download all attachments to current directory
+ec tickets attachments download nl_company_abc123 ticket-id-here --all
+
+# Download all attachments to a specific directory
+ec tickets attachments download nl_company_abc123 ticket-id-here --all -o ./photos/
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--all` | Download all attachments |
+| `-o, --output=STRING` | Output path (file for single, directory for --all) |
+
 ---
 
 ### audits
@@ -694,6 +750,52 @@ ec audits create nl_company_abc123 template-id-here -j
 | `-d, --due-date=STRING` | Due date (ISO 8601 format, e.g., 2025-12-31T23:59:59Z) |
 | `-t, --tags=TAGS,...` | Tags to add (can be specified multiple times) |
 | `-j, --json` | Output as JSON |
+
+#### audits attachments list
+
+List all attachments (photos) on an audit.
+
+```bash
+# List attachments on an audit
+ec audits attachments list nl_company_abc123 audit-id-here
+
+# Use human ID
+ec audits attachments list nl_company_abc123 708739
+
+# Output as JSON
+ec audits attachments list nl_company_abc123 708739 -j
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
+
+#### audits attachments download
+
+Download one or all attachments from an audit.
+
+```bash
+# Download a specific attachment
+ec audits attachments download nl_company_abc123 audit-id-here photo.webp
+
+# Download to a custom path
+ec audits attachments download nl_company_abc123 audit-id-here photo.webp -o saved.webp
+
+# Download all attachments
+ec audits attachments download nl_company_abc123 audit-id-here --all
+
+# Download all to a specific directory
+ec audits attachments download nl_company_abc123 audit-id-here --all -o ./photos/
+```
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--all` | Download all attachments |
+| `-o, --output=STRING` | Output path (file for single, directory for --all) |
 
 ---
 
