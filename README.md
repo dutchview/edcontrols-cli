@@ -751,6 +751,18 @@ ec audits create nl_company_abc123 template-id-here -j
 | `-t, --tags=TAGS,...` | Tags to add (can be specified multiple times) |
 | `-j, --json` | Output as JSON |
 
+#### audits delete
+
+Permanently delete an audit. Supports human IDs.
+
+```bash
+# Delete by human ID
+ec audits delete nl_company_abc123 BEE431
+
+# Delete by full CouchDB ID
+ec audits delete nl_company_abc123 audit-id-here
+```
+
 #### audits attachments list
 
 List all attachments (photos) on an audit.

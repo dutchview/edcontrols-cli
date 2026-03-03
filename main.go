@@ -10,7 +10,7 @@ import (
 	"github.com/dutchview/edcontrols-cli/internal/config"
 )
 
-var version = "1.4.0"
+var version = "1.5.0"
 
 var CLI struct {
 	// Global flags
@@ -22,7 +22,7 @@ var CLI struct {
 	Contracts cmd.ContractsCmd `cmd:"" help:"Manage contracts/clients (list, projects)"`
 	Projects  cmd.ProjectsCmd  `cmd:"" help:"Manage projects (list, get) with search and glacier support"`
 	Tickets   cmd.TicketsCmd   `cmd:"" help:"Manage tickets (list, get, update, assign, open, close, archive, unarchive, delete, attachments)"`
-	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get, create, update, attachments)"`
+	Audits    cmd.AuditsCmd    `cmd:"" help:"Manage audits (list, get, create, update, delete, attachments)"`
 	Templates cmd.TemplatesCmd `cmd:"" help:"Manage audit templates (list, get, create, update, publish, unpublish) and groups (list, get, create, update, delete)"`
 	Maps      cmd.MapsCmd      `cmd:"" help:"Manage maps/drawings (list, get, add, delete, tags) and groups (list)"`
 	Files     cmd.FilesCmd     `cmd:"" help:"Manage files (list, get, add, download, archive, unarchive, delete, tags, to-map) and groups (list, create)"`

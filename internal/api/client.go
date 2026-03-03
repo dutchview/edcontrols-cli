@@ -2306,6 +2306,39 @@ func (c *Client) DeleteTickets(database string, ticketIDs []string) error {
 	return err
 }
 
+// DeleteAudits deletes one or more audits
+func (c *Client) DeleteAudits(database string, auditIDs []string) error {
+	now := time.Now().UTC()
+	timeOnly := now.Format("15:04:05")
+
+	reqBody := map[string]interface{}{
+		"status":         "",
+		"database":       database,
+		"channelId":      "",
+		"tags":           nil,
+		"progressLabels": nil,
+		"time":           timeOnly,
+		"operationType":  "delete",
+		"replaceTag":     "",
+		"modules":        []string{},
+		"roles":          nil,
+		"documentIds":    auditIDs,
+		"platform": map[string]string{
+			"userInterface":    "cli",
+			"interfaceVersion": "1.0.0",
+		},
+		"actionOnRoles": []string{},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	_, err = c.doRequest("POST", "/api/v1/bulk/audit", strings.NewReader(string(jsonBody)))
+	return err
+}
+
 // CreateTemplateGroup creates a new audit template group
 func (c *Client) CreateTemplateGroup(database, name string) (string, error) {
 	// Get user email

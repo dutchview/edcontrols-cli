@@ -15,6 +15,7 @@ type AuditsCmd struct {
 	Get         AuditsGetCmd         `cmd:"" help:"Get audit details"`
 	Create      AuditsCreateCmd      `cmd:"" help:"Create an audit from a template"`
 	Update      AuditsUpdateCmd      `cmd:"" help:"Update an existing audit"`
+	Delete      AuditsDeleteCmd      `cmd:"" help:"Delete an audit"`
 	Attachments AuditAttachmentsCmd  `cmd:"" help:"List or download audit attachments (photos)"`
 }
 
@@ -630,6 +631,31 @@ func (c *AuditsUpdateCmd) Run(client *api.Client) error {
 	}
 
 	fmt.Printf("Audit %s updated successfully.\n", humanID(auditID))
+	return nil
+}
+
+type AuditsDeleteCmd struct {
+	Database string `arg:"" name:"project-id" help:"Project ID"`
+	AuditID  string `arg:"" help:"Audit ID (human ID or full CouchDB ID)"`
+}
+
+func (c *AuditsDeleteCmd) Run(client *api.Client) error {
+	database := c.Database
+	auditID := c.AuditID
+
+	if len(c.AuditID) <= 6 {
+		foundDB, foundID, err := findAuditByHumanID(client, c.AuditID, c.Database)
+		if err != nil {
+			return err
+		}
+		database = foundDB
+		auditID = foundID
+	}
+
+	if err := client.DeleteAudits(database, []string{auditID}); err != nil {
+		return fmt.Errorf("deleting audit: %w", err)
+	}
+	fmt.Printf("Audit %s deleted.\n", humanID(auditID))
 	return nil
 }
 
