@@ -512,6 +512,110 @@ func (c *Client) SearchTicketsByID(projectIDs []string, searchID string) ([]Tick
 	return tickets, nil
 }
 
+// StatsSearchOptions contains options for fetching documents across
+// multiple projects for client-side stats aggregation.
+type StatsSearchOptions struct {
+	Projects    []string
+	Status      string
+	SearchTitle string
+	Assignee    string // ticket responsible or audit auditor
+	Tag         string
+	GroupID     string
+	Archived    bool
+	Page        int
+	Size        int
+}
+
+// statsSearchBody builds the POST search request body shared by tickets
+// and audits. assigneeKey is searchByResponsible or searchByAuditor.
+func statsSearchBody(opts StatsSearchOptions, assigneeKey string, includeFields []string) map[string]interface{} {
+	body := map[string]interface{}{
+		"projects":      opts.Projects,
+		"sortOrder":     "DESC",
+		"sortby":        "CREATIONDATE",
+		"includeFields": includeFields,
+	}
+	if opts.Status != "" {
+		body["status"] = opts.Status
+	}
+	if opts.SearchTitle != "" {
+		body["searchByTitle"] = opts.SearchTitle
+	}
+	if opts.Assignee != "" {
+		body[assigneeKey] = opts.Assignee
+	}
+	if opts.Tag != "" {
+		body["tag"] = opts.Tag
+	}
+	if opts.GroupID != "" {
+		body["groupId"] = opts.GroupID
+	}
+	if opts.Archived {
+		body["archived"] = true
+	}
+	return body
+}
+
+// SearchTicketsStats fetches one page of tickets across projects with
+// only the fields needed for aggregation.
+func (c *Client) SearchTicketsStats(opts StatsSearchOptions) ([]Ticket, int, error) {
+	fields := []string{"id", "couchDbId", "state", "participants", "tags", "dates", "content", "groupId", "database"}
+	reqBody := statsSearchBody(opts, "searchByResponsible", fields)
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, 0, fmt.Errorf("marshaling request: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v2/data/tickets/search?size=%d&page=%d", opts.Size, opts.Page)
+	body, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, 0, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var tickets []Ticket
+	if err := json.Unmarshal(result.Results, &tickets); err != nil {
+		return nil, 0, fmt.Errorf("parsing tickets: %w", err)
+	}
+
+	return tickets, result.Hits, nil
+}
+
+// SearchAuditsStats fetches one page of audits across projects with
+// only the fields needed for aggregation.
+func (c *Client) SearchAuditsStats(opts StatsSearchOptions) ([]Audit, int, error) {
+	fields := []string{"id", "couchDbId", "status", "author", "participants", "tags", "dates", "template", "templateName", "templateId", "groupId", "database"}
+	reqBody := statsSearchBody(opts, "searchByAuditor", fields)
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, 0, fmt.Errorf("marshaling request: %w", err)
+	}
+
+	endpoint := fmt.Sprintf("/api/v2/data/audits/search?size=%d&page=%d", opts.Size, opts.Page)
+	body, err := c.doRequest("POST", endpoint, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result SearchResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, 0, fmt.Errorf("parsing response: %w", err)
+	}
+
+	var audits []Audit
+	if err := json.Unmarshal(result.Results, &audits); err != nil {
+		return nil, 0, fmt.Errorf("parsing audits: %w", err)
+	}
+
+	return audits, result.Hits, nil
+}
+
 // SearchAuditsByID searches for audits by ID across multiple projects using the POST search endpoint
 func (c *Client) SearchAuditsByID(projectIDs []string, searchID string) ([]Audit, error) {
 	reqBody := map[string]interface{}{

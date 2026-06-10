@@ -10,7 +10,7 @@ import (
 	"github.com/dutchview/edcontrols-cli/internal/config"
 )
 
-var version = "1.5.0"
+var version = "1.6.0"
 
 var CLI struct {
 	// Global flags

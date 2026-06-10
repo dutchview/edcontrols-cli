@@ -18,6 +18,7 @@ The EdControls CLI is designed to work seamlessly with AI agents and assistants,
 
 | Task | Example |
 |------|---------|
+| **Count & break down** | "How many open tickets per subcontractor?" — `ec tickets stats --group-by responsible -s started` |
 | **Summarize tickets** | "Give me a summary of all open tickets for project X" |
 | **Bulk assignments** | "Assign all unassigned tickets to john@example.com" |
 | **Status reports** | "Generate a weekly status report for all active projects" |
@@ -429,6 +430,55 @@ ec tickets list nl_company_abc123 -j
 | `--asc` | Sort in ascending order (oldest first) |
 | `-j, --json` | Output as JSON |
 
+#### tickets stats
+
+Aggregate ticket counts without listing tickets — the cheap way to answer "how many tickets per responsible/status/project?". Every row shows COUNT and OVERDUE, with a TOTAL row at the bottom. Fetching and aggregation happen client-side (the API has no group-by endpoint); result sets above 50,000 tickets abort with a hint to narrow the selection.
+
+```bash
+# Total ticket count (and how many are overdue)
+ec tickets stats
+
+# Open tickets per responsible across all projects
+ec tickets stats --group-by responsible -s started
+
+# Per project and status (portfolio overview, max two dimensions)
+ec tickets stats --group-by project,status
+
+# Overdue tickets per responsible (due date passed, not completed)
+ec tickets stats --group-by responsible --overdue
+
+# Fire-safety tickets per project
+ec tickets stats --group-by project -t "brandveiligheid"
+
+# Created per month over the last year (chronological)
+ec tickets stats --group-by created:month --created-after 1y
+
+# Completed per week, as JSON
+ec tickets stats --group-by completed:week -j
+```
+
+**Dimensions** (`--group-by`, up to two comma-separated): `responsible`, `status`, `project`, `tag`, `author`, `created:week`, `created:month`, `completed:week`, `completed:month`.
+
+Notes:
+- Grouping by `tag` counts a ticket once per tag, so the column sum can exceed TOTAL (shown separately).
+- Missing values appear as `(none)` — e.g. tickets without a responsible.
+- All `tickets list` filters are supported (`-s`, `-r`, `-t`, `-g`, `--search`, `--archived`, `--all-projects`, date filters).
+
+**Flags:**
+
+| Flag | Description |
+|------|-------------|
+| `--group-by=STRING` | Up to two comma-separated dimensions |
+| `--overdue` | Only count overdue tickets |
+| `-s, --status=STRING` | Filter by status (created, started, completed) |
+| `--search=STRING` | Filter by title search |
+| `-r, --responsible=STRING` | Filter by responsible person email |
+| `-t, --tag=STRING` | Filter by tag |
+| `-g, --group-id=STRING` | Filter by group ID |
+| `-a, --archived` | Include archived tickets |
+| `--all-projects` | Include inactive projects when aggregating all |
+| `-j, --json` | Output as JSON (`{total, overdue, groupBy, groups}`) |
+
 #### tickets get
 
 Get details for a specific ticket. Supports human IDs (last 6 characters of CouchDB ID, reversed and uppercased).
@@ -684,6 +734,23 @@ ec audits list nl_company_abc123 -j
 | `-o, --sort="created"` | Sort by field (created, modified) |
 | `--asc` | Sort in ascending order (oldest first) |
 | `-j, --json` | Output as JSON |
+
+#### audits stats
+
+Aggregate audit counts, mirroring `tickets stats`. Dimensions: `template`, `auditor`, `status`, `project`, `tag`, `author`, plus the `created`/`completed` week and month buckets. Status values are printed exactly as the API returns them (`started`, `In Progress`, `completed`).
+
+```bash
+# How many audits per template are still open?
+ec audits stats --group-by template,status
+
+# Audits per auditor, overdue only
+ec audits stats --group-by auditor --overdue
+
+# Completed audits per month
+ec audits stats --group-by completed:month
+```
+
+All `audits list` filters are supported (`-s`, `-t` template, `-a` auditor, `--tag`, `-g`, `--search`, `--archived`, date filters); add `-j` for JSON.
 
 #### audits get
 

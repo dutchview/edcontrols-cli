@@ -14,6 +14,7 @@ import (
 
 type TicketsCmd struct {
 	List        TicketsListCmd        `cmd:"" help:"List tickets"`
+	Stats       TicketsStatsCmd       `cmd:"" help:"Aggregate ticket counts (--group-by responsible, status, project, tag, author, created:month, ...)"`
 	Get         TicketsGetCmd         `cmd:"" help:"Get ticket details"`
 	Update      TicketsUpdateCmd      `cmd:"" help:"Update ticket fields (-t title, -d description, --due-date, --clear-due, -r responsible, --clear-responsible, --complete, -m comment)"`
 	Assign      TicketsAssignCmd      `cmd:"" help:"Assign a ticket to someone"`
@@ -46,35 +47,9 @@ type TicketsListCmd struct {
 }
 
 func (c *TicketsListCmd) Run(client *api.Client) error {
-	// Parse date filters
-	var filters DateFilterSet
-	if c.CreatedAfter != "" {
-		t, err := ParseRelativeTime(c.CreatedAfter)
-		if err != nil {
-			return fmt.Errorf("--created-after: %w", err)
-		}
-		filters.CreatedAfter = &t
-	}
-	if c.CreatedBefore != "" {
-		t, err := ParseRelativeTime(c.CreatedBefore)
-		if err != nil {
-			return fmt.Errorf("--created-before: %w", err)
-		}
-		filters.CreatedBefore = &t
-	}
-	if c.ModifiedAfter != "" {
-		t, err := ParseRelativeTime(c.ModifiedAfter)
-		if err != nil {
-			return fmt.Errorf("--modified-after: %w", err)
-		}
-		filters.ModifiedAfter = &t
-	}
-	if c.ModifiedBefore != "" {
-		t, err := ParseRelativeTime(c.ModifiedBefore)
-		if err != nil {
-			return fmt.Errorf("--modified-before: %w", err)
-		}
-		filters.ModifiedBefore = &t
+	filters, err := parseDateFilterSet(c.CreatedAfter, c.CreatedBefore, c.ModifiedAfter, c.ModifiedBefore)
+	if err != nil {
+		return err
 	}
 
 	hasDateFilters := filters.HasDateFilters()

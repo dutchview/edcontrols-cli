@@ -12,6 +12,7 @@ import (
 
 type AuditsCmd struct {
 	List        AuditsListCmd        `cmd:"" help:"List audits"`
+	Stats       AuditsStatsCmd       `cmd:"" help:"Aggregate audit counts (--group-by template, auditor, status, project, tag, created:month, ...)"`
 	Get         AuditsGetCmd         `cmd:"" help:"Get audit details"`
 	Create      AuditsCreateCmd      `cmd:"" help:"Create an audit from a template"`
 	Update      AuditsUpdateCmd      `cmd:"" help:"Update an existing audit"`
@@ -41,35 +42,9 @@ type AuditsListCmd struct {
 }
 
 func (c *AuditsListCmd) Run(client *api.Client) error {
-	// Parse date filters
-	var filters DateFilterSet
-	if c.CreatedAfter != "" {
-		t, err := ParseRelativeTime(c.CreatedAfter)
-		if err != nil {
-			return fmt.Errorf("--created-after: %w", err)
-		}
-		filters.CreatedAfter = &t
-	}
-	if c.CreatedBefore != "" {
-		t, err := ParseRelativeTime(c.CreatedBefore)
-		if err != nil {
-			return fmt.Errorf("--created-before: %w", err)
-		}
-		filters.CreatedBefore = &t
-	}
-	if c.ModifiedAfter != "" {
-		t, err := ParseRelativeTime(c.ModifiedAfter)
-		if err != nil {
-			return fmt.Errorf("--modified-after: %w", err)
-		}
-		filters.ModifiedAfter = &t
-	}
-	if c.ModifiedBefore != "" {
-		t, err := ParseRelativeTime(c.ModifiedBefore)
-		if err != nil {
-			return fmt.Errorf("--modified-before: %w", err)
-		}
-		filters.ModifiedBefore = &t
+	filters, err := parseDateFilterSet(c.CreatedAfter, c.CreatedBefore, c.ModifiedAfter, c.ModifiedBefore)
+	if err != nil {
+		return err
 	}
 
 	hasDateFilters := filters.HasDateFilters()
